@@ -1,14 +1,16 @@
 import 'package:dio/dio.dart';
+import 'dart:convert';
 
 class ApiService {
   // Use 10.0.2.2 for Android emulator to access localhost
   // Use localhost for iOS simulator or web
-  static const String baseUrl = 'http://127.0.0.1:8000'; 
+  // Use 192.168.1.2 for LAN access (Mobile + PC)
+  static const String baseUrl = 'http://192.168.1.2:8000'; 
   
   final Dio _dio = Dio(BaseOptions(
     baseUrl: baseUrl,
-    connectTimeout: const Duration(seconds: 5),
-    receiveTimeout: const Duration(seconds: 3),
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
   ));
 
   Future<String> getHealthStatus() async {
@@ -20,10 +22,28 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> uploadImage(List<int> bytes, String filename) async {
+  Future<Map<String, dynamic>> getAnalysisQuestions(List<int> bytes, String filename) async {
     try {
       final formData = FormData.fromMap({
         'files': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post('/analysis/analyze/context', data: formData);
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadImage(List<int> bytes, String filename, Map<String, dynamic> userResponses) async {
+    try {
+      // Serialize answers to JSON string
+      String responsesJson = "{}";
+      // Manually simple serialization or use jsonEncode if imported
+      // Assuming simple strings for now or import dart:convert
+      
+      final formData = FormData.fromMap({
+        'files': MultipartFile.fromBytes(bytes, filename: filename),
+        'user_responses': jsonEncode(userResponses), 
       });
       
       final response = await _dio.post(
@@ -65,6 +85,15 @@ class ApiService {
       return response.data as List<dynamic>;
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserStatus(String userId) async {
+    try {
+      final response = await _dio.get('/gamification/status/$userId');
+      return response.data;
+    } catch (e) {
+      return {};
     }
   }
 }

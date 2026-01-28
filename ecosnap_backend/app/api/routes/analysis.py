@@ -1,33 +1,65 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form
 from typing import List
 from app.services.ai_service import AIService
 
 router = APIRouter()
 
-@router.post("/analyze")
-async def analyze_room(files: List[UploadFile] = File(...)):
-    """
-    Analyzes uploaded room images using YOLOv8 (local) and Gemini Vision (Cloud).
-    """
-    if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded")
+# from fastapi import Form
 
-    # Process first image for MVP
+@router.post("/analyze/context")
+async def analyze_context(
+    files: List[UploadFile] = File(...)
+):
+    """
+    Step 1: Analyzes image to generate context-specific questions.
+    """
+    if not files: raise HTTPException(status_code=400, detail="No files")
+    
     file = files[0]
     contents = await file.read()
     
-    # 1. Detect Objects (YOLO)
+    # Quick Object Detection
     detected_objects = AIService.detect_objects(contents)
     
-    # 2. Analyze with Gemini
-    analysis_result = AIService.analyze_with_gemini(contents, detected_objects)
+    # Generate Questions
+    result = AIService.generate_questions(contents, detected_objects)
+    return result
+
+@router.post("/analyze")
+async def analyze_room(
+    files: List[UploadFile] = File(...),
+    user_responses: str = Form("{}") # JSON string of answers
+):
+    """
+    Step 2: Full Analysis with User Answers.
+    """
+    if not files: raise HTTPException(status_code=400, detail="No files uploaded")
+
+    file = files[0]
+    contents = await file.read()
     
-    return {
+    import json
+    try:
+        responses_dict = json.loads(user_responses)
+    except:
+        responses_dict = {"budget": user_responses} # Fallback
+    
+    # 1. Detect Objects
+    detected_objects = AIService.detect_objects(contents)
+    
+    # 2. Analyze with Gemini + User Context
+    analysis_result = AIService.analyze_with_gemini(contents, detected_objects, responses_dict)
+    
+    # 3. Depth Map
+    from app.services.depth_service import DepthService
+    depth_map_base64 = DepthService.generate_depth_map(contents)
+
+    response = {
         "room_id": file.filename,
         "message": "Analysis Complete",
         "detected_objects": detected_objects,
-        "appliances": analysis_result.get("appliances", []),
-        "efficiency_score": analysis_result.get("efficiency_score", 0),
-        "recommendation": analysis_result.get("recommendation", "No recommendation available."),
-        "green_architecture": analysis_result.get("green_architecture", {})
+        "depth_map": depth_map_base64,
     }
+    response.update(analysis_result)
+    
+    return response

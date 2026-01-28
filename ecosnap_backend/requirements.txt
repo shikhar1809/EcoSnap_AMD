@@ -9,3 +9,8 @@ python-dotenv
 passlib[bcrypt]
 ultralytics
 pillow
+edge-tts
+nest_asyncio
+transformers
+torch
+matplotlib

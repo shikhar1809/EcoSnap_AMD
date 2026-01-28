@@ -51,66 +51,129 @@ class AIService:
             return []
 
     @staticmethod
-    def analyze_with_gemini(image_bytes: bytes, detected_objects: list):
+    def generate_questions(image_bytes: bytes, detected_objects: list):
         """
-        Sends image and detected tags to Gemini for detailed analysis.
+        scans image, determines type, and generates 3 relevant questions.
         """
         try:
-            # Extract just labels for the prompt context
+            object_labels = [obj['label'] for obj in detected_objects]
+            image = Image.open(io.BytesIO(image_bytes))
+            
+            prompt = f"""
+            You are EcoSnap. Analyze this image (Objects: {", ".join(object_labels)}).
+            
+            Determine if it is a "Product" or "Room".
+            
+            Generate 3 INTELLIGENT, FORENSIC questions.
+            - IF MULTIPLE ITEMS: Ask "I see multiple items (Item A, Item B), which one are you analyzing?"
+            - IF BROKEN/OLD: Ask "It looks worn out. Are you planning to repair or replace it?"
+            - IF PRODUCT: Ask "How long have you owned this?" or "What is your goal (sell/recycle)?"
+            - IF ROOM: Ask "Are you renovating or just auditing for bills?"
+            
+            Return JSON:
+            {{
+                "type": "room/product",
+                "questions": [
+                    {{"id": "q1", "text": "Question?", "type": "text/number/select", "options": ["opt1", "opt2"] }} 
+                ]
+            }}
+            (Max 3 questions).
+            """
+            response = model_gemini.generate_content([prompt, image])
+            text = response.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(text)
+        except Exception as e:
+            print(f"Question Gen Error: {e}")
+            return {
+                "type": "product", 
+                "questions": [
+                    {"id": "budget", "text": "What is your budget?", "type": "text", "options": []}
+                ]
+            }
+
+    @staticmethod
+    def analyze_with_gemini(image_bytes: bytes, detected_objects: list, user_responses: dict):
+        """
+        Sends image + user answers to Gemini for detailed analysis.
+        Uses ReferenceDatabase for verified ground truth if available.
+        """
+        try:
+            from app.services.reference_data import ReferenceDatabase
+            import json
+            
             object_labels = [obj['label'] for obj in detected_objects]
             print(f"Analyzing with Gemini... Objects: {object_labels}")
             image = Image.open(io.BytesIO(image_bytes))
             
-            prompt = f"""
-            You are an expert home sustainability auditor and green architect for the Indian context.
-            I have detected the following objects in this room: {", ".join(object_labels)}.
+            # Check for Verified Data
+            ref_match = ReferenceDatabase.get_data(detected_objects)
+            ref_context = ""
+            if ref_match:
+                ref_context = (
+                    f"CRITICAL: We have VERIFIED DATABASE DATA for this item ('{ref_match['matched_key']}'). "
+                    f"Use these EXACT values for carbon/materials/recovery: {json.dumps(ref_match['data'])}. "
+                    "Mark 'data_source' as 'Verified (Local DB)'."
+                )
             
-            Analyze the image and provide a JSON response with the following structure:
+            context_str = "\n".join([f"- {k}: {v}" for k,v in user_responses.items()])
+            
+            prompt = f"""
+            You are 'EcoSnap'.
+            User Context Inputs: {context_str}
+            Objects detected: {", ".join(object_labels)}.
+            
+            {ref_context}
+            
+            STEP 1: Classify (Room vs Product).
+            STEP 2: Analyze FORENSICALLY.
+            - Look for WEAR & TEAR (scratches, damage).
+            - Look for MULTIPLE ITEMS (if yes, list them).
+            - Estimate LIFESPAN based on condition.
+            
+            [IF PRODUCT]
+            Return JSON:
             {{
-                "appliances": [
-                    {{
-                        "type": "Name of appliance (e.g. AC, Fridge)",
-                        "brand": "Estimated brand or 'Unknown'",
-                        "estimated_age": "Estimated age in years",
-                        "efficiency_rating": "High/Medium/Low",
-                        "current_power_consumption": "Estimated watts",
-                        "recommended_replacement": "Name of a specific 5-star rated replacement model available in India (e.g. LG AI Convertible 6-in-1)",
-                        "payback_period": "Time to recover cost via electricity savings (e.g. '1.5 years')",
-                        "financial_savings_year": "Estimated ₹ savings per year",
-                        "affiliate_link": "Generate a mock Flipkart/Amazon India link for the replacement model",
-                        "e_waste_value": "Estimated scrap value in ₹"
-                    }}
-                ],
-                "efficiency_score": "Integer 0-100 representing room energy efficiency",
-                "recommendation": "One key actionable tip to improve energy efficiency in this specific room.",
-                "green_architecture": {{
-                    "layout_advice": "Specific advice on how to rearrange furniture or items for better natural light/airflow",
-                    "sustainable_additions": "Suggestion for plants or sustainable materials to add"
-                }}
+                "type": "product",
+                "product_name": "Name",
+                "category": "Cat",
+                "data_source": "Verified (Local DB) OR AI Estimate",
+                "condition_assessment": "Excellent/Good/Fair/Poor",
+                "estimated_lifespan": "e.g. 2 more years",
+                "multiple_items_detected": ["Item 1", "Item 2"], 
+                "carbon_footprint": {{ "total_kg_co2": "Val", "breakdown": {{ "manufacturing": "Val", "transport": "Val", "use_phase": "Val", "end_of_life": "Val" }}, "comparison_text": "text" }},
+                "material_breakdown": [ {{ "component": "Part", "material": "Mat", "recyclability": "High/Med" }} ],
+                "recovery_info": {{ "recycling_time": "Time", "recovery_value_inr": "Val", "recycling_action": "Action" }},
+                "sustainability_score": {{ "score": "0-10", "grade": "A-F", "reason": "Reason" }},
+                "alternatives": [ {{ "name": "Name", "carbon_savings": "Msg", "price_estimate": "Price", "benefit": "Msg" }} ],
+                "recommendation": "Smart Advice: Repair/Replace? Buy New? (Based on condition)"
             }}
             
-            Return ONLY the JSON. Do not include markdown formatting like ```json.
-            Prioritize recommendations with the shortest payback period.
+            [IF ROOM]
+            Return JSON:
+            {{
+                "type": "room",
+                "product_name": "Room Scan",
+                "data_source": "AI Estimate",
+                "efficiency_score": "0-100",
+                "appliances": [ {{ "type": "Appliance", "brand": "Brand", "efficiency_rating": "High/Low", "estimated_age": "Years", "current_power_consumption": "Watts", "recommended_replacement": "Model", "financial_savings_year": "₹Val", "payback_period": "Years" }} ],
+                "green_architecture": {{ "layout_advice": "Advice considering user goal", "sustainable_additions": "Additions" }},
+                "recommendation": "Recommendation based on user budget/goal"
+            }}
+            
+            Return ONLY JSON.
             """
             
             response = model_gemini.generate_content([prompt, image])
-            print(f"Gemini Raw Response: {response.text}")
-            
-            # Clean response if it contains markdown code blocks
             text = response.text.replace("```json", "").replace("```", "").strip()
             return json.loads(text)
             
         except Exception as e:
             print(f"Gemini Error: {e}")
-            import traceback
-            traceback.print_exc()
-            # Fallback response
             return {
+                "type": "product",
+                "product_name": "Error Analyzing",
+                "recommendation": str(e),
                 "appliances": [],
-                "efficiency_score": 0,
-                "recommendation": f"Error: {str(e)}",
-                "green_architecture": {
-                    "layout_advice": "Could not generate advice.",
-                    "sustainable_additions": "None"
-                }
+                "carbon_footprint": {"total_kg_co2": "N/A"}, 
+                "material_breakdown": []
             }
