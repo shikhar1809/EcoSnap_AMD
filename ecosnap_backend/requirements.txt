@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+google-generativeai
+python-multipart
+supabase
+python-dotenv
+passlib[bcrypt]
+ultralytics
+pillow
