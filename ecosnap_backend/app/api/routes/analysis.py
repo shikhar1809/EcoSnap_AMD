@@ -8,7 +8,8 @@ router = APIRouter()
 
 @router.post("/analyze/context")
 async def analyze_context(
-    files: List[UploadFile] = File(...)
+    files: List[UploadFile] = File(...),
+    user_note: str = Form(None)
 ):
     """
     Step 1: Analyzes image to generate context-specific questions.
@@ -22,7 +23,7 @@ async def analyze_context(
     detected_objects = AIService.detect_objects(contents)
     
     # Generate Questions
-    result = AIService.generate_questions(contents, detected_objects)
+    result = AIService.generate_questions(contents, detected_objects, user_note)
     return result
 
 @router.post("/analyze")

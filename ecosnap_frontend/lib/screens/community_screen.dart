@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({Key? key}) : super(key: key);
@@ -13,6 +14,13 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   List<dynamic> questions = [];
   bool isLoading = true;
+  late GoogleMapController mapController;
+
+  final LatLng _center = const LatLng(19.0760, 72.8777); // Mumbai Coordinates
+
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+  }
 
   @override
   void initState() {
@@ -115,7 +123,65 @@ class _CommunityScreenState extends State<CommunityScreen> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
+          : Column(
+              children: [
+                // ECO-PULSE TICKER
+                Container(
+                  width: double.infinity,
+                  height: 40,
+                  color: Colors.black,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 100, // Infinite feel
+                    itemBuilder: (context, index) {
+                      final feed = [
+                        "⚡ Rahul saved ₹500 on Bill",
+                        "🌿 Priya planted a tree",
+                        "♻️ Amit sold e-waste",
+                        "🏆 Neha reached Level 5",
+                        "🌞 Solar installed in Sector 4"
+                      ];
+                      return Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(feed[index % feed.length], style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Courier', fontWeight: FontWeight.bold)),
+                      );
+                    },
+                  ),
+                ),
+                // Map View
+                Container(
+                  height: 300,
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: GoogleMap(
+                      onMapCreated: _onMapCreated,
+                      initialCameraPosition: CameraPosition(
+                        target: _center,
+                        zoom: 11.0,
+                      ),
+                      markers: {
+                        const Marker(
+                          markerId: MarkerId('mumbai_marker'),
+                          position: LatLng(19.0760, 72.8777),
+                          infoWindow: InfoWindow(title: 'Mumbai Community'),
+                        ),
+                        const Marker(
+                          markerId: MarkerId('marker_2'),
+                          position: LatLng(19.0800, 72.8800),
+                        ),
+                      },
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
               itemCount: questions.length,
               itemBuilder: (ctx, index) {
                 final q = questions[index];
@@ -150,11 +216,18 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 );
               },
             ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddQuestionDialog,
         child: const Icon(Icons.add),
         tooltip: "Ask Question",
       ),
     );
+  }
+
+  Widget _mapMarker() {
+      return const Icon(Icons.location_on, color: Colors.redAccent, size: 40);
   }
 }

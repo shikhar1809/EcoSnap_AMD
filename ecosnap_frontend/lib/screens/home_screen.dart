@@ -6,15 +6,19 @@ import '../widgets/leaf_loading.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:convert'; // For Base64 decoding
 import 'dart:typed_data';
-import '../widgets/scanner_loading.dart';
+import '../widgets/scanner_loading.dart'; // Correct import
 import 'chat_screen.dart';
+import 'office_snap_screen.dart';
 import 'leaderboard_screen.dart';
 import 'community_screen.dart';
 import 'subsidy_screen.dart';
 import 'maintenance_screen.dart';
+import 'marketplace_screen.dart';
 import 'carbon_screen.dart';
 import '../widgets/questionnaire_dialog.dart';
 import 'top_picks_screen.dart';
+import '../widgets/voice_agent_widget.dart';
+import '../widgets/verification_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,45 +39,80 @@ class _HomeScreenState extends State<HomeScreen> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       
+      String? userNote;
+      if (mounted) {
+        userNote = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.grey.shade900,
+            title: const Text("Any context?", style: TextStyle(color: Colors.white)),
+            content: TextField(
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(hintText: "E.g. 'Old radio', 'Plastic bottle'", hintStyle: TextStyle(color: Colors.white38)),
+              onSubmitted: (val) => Navigator.pop(ctx, val),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text("Skip")),
+              TextButton(onPressed: () => Navigator.pop(ctx, "confirmed"), child: const Text("Next")),
+            ],
+          )
+        );
+      }
+
       if (mounted) {
          setState(() {
-           _isAnalyzing = true; // Show loading for Step 1
+           _isAnalyzing = true; 
            _currentImageBytes = bytes;
          });
       }
 
       try {
-        // Step 1: Get Context Questions (AI)
-        final contextResult = await apiService.getAnalysisQuestions(bytes, image.name);
+        final contextResult = await apiService.getAnalysisQuestions(bytes, image.name, userNote: userNote);
         
         if (mounted) {
-           setState(() => _isAnalyzing = false); // Stop loading to show dialog
+           setState(() => _isAnalyzing = false);
            
+           final verification = contextResult['verification'] ?? {};
            final questions = contextResult['questions'] as List? ?? [];
+           final detectedJourney = contextResult['journey_id'] ?? 'SPECIAL';
            
-           // Show Dynamic Dialog
            await showDialog(
              context: context,
              barrierDismissible: false,
-             builder: (ctx) => QuestionnaireDialog(
-               questions: questions,
-               onSubmit: (answers) async {
-                  // Step 2: Full Analysis with Answers
-                  if (mounted) setState(() => _isAnalyzing = true);
+             builder: (ctx) => VerificationDialog(
+               verificationData: verification,
+               detectedJourneyId: detectedJourney,
+               onResult: (isConfirmed, correctedCategory, finalJourneyId) async {
+                  Navigator.pop(ctx); 
                   
-                  try {
-                    final result = await apiService.uploadImage(bytes, image.name, answers);
-                    if (mounted) {
-                       setState(() {
-                         _isAnalyzing = false;
-                         _lastAnalysisData = result;
-                       });
-                       _showResults(result, bytes, "User Custom");
-                    }
-                  } catch (e) {
-                    if (mounted) setState(() => _isAnalyzing = false);
-                  }
-               },
+                  await showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (qCtx) => QuestionnaireDialog(
+                      questions: questions,
+                      onSubmit: (answers) async {
+                         if (mounted) setState(() => _isAnalyzing = true);
+                         try {
+                           if (correctedCategory != null) {
+                             answers['user_correction'] = correctedCategory;
+                           }
+                           answers['journey_id'] = finalJourneyId;
+                           
+                           final result = await apiService.uploadImage(bytes, image.name, answers);
+                           if (mounted) {
+                              setState(() {
+                                _isAnalyzing = false;
+                                _lastAnalysisData = result;
+                              });
+                              _showResults(result, bytes, "User Custom");
+                           }
+                         } catch (e) {
+                           if (mounted) setState(() => _isAnalyzing = false);
+                         }
+                      },
+                    )
+                  );
+               }
              )
            );
         }
@@ -136,14 +175,13 @@ class _HomeScreenState extends State<HomeScreen> {
         contentPadding: EdgeInsets.zero,
         content: SizedBox(
           width: double.maxFinite,
-          height: 600,
+          height: 650, 
           child: Column(
             children: [
-              // Header Image
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 child: SizedBox(
-                  height: 200,
+                  height: 180,
                   width: double.infinity,
                   child: Image.memory(imageBytes, fit: BoxFit.cover),
                 ),
@@ -151,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
               
               Expanded(
                 child: DefaultTabController(
-                  length: 3,
+                  length: 6,
                   child: Column(
                     children: [
                       TabBar(
@@ -166,8 +204,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             ]
                           : const [
                               Tab(text: "Impact"),
-                              Tab(text: "Materials"),
-                              Tab(text: "Alternatives"),
+                              Tab(text: "Economics"),
+                              Tab(text: "Community"),
+                              Tab(text: "Subsidies"),
+                              Tab(text: "Top Picks"),
+                              Tab(text: "Maintenance"),
                             ],
                       ),
                       Expanded(
@@ -180,8 +221,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               ]
                             : [
                                 _buildImpactTab(data),
-                                _buildMaterialsTab(data),
-                                _buildAlternativesTab(data),
+                                _buildEconomicsTab(data),
+                                _buildCommunityTab(data),
+                                const SubsidyScreen(),
+                                const TopPicksScreen(),
+                                const MaintenanceScreen(),
                               ],
                         ),
                       ),
@@ -204,103 +248,373 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildImpactTab(Map<String, dynamic> data) {
     final carbon = data['carbon_footprint'] ?? {};
-    final breakdown = carbon['breakdown'] ?? {};
     final score = data['sustainability_score'] ?? {};
+    final alts = data['alternatives'] as List? ?? [];
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(
-                  children: [
-                    Expanded(child: Text(data['product_name'] ?? 'Unknown Product', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                    if ((data['data_source'] ?? '').contains('Verified'))
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8.0),
-                        child: Icon(Icons.verified, color: Colors.blueAccent, size: 20),
-                      )
-                  ],
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.blueAccent.withOpacity(0.2), Colors.purpleAccent.withOpacity(0.1)]),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white24)
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(data['product_name'] ?? 'Unknown', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text(data['condition_assessment'] ?? 'Analysis Complete', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+                  ]),
                 ),
-                Text(data['data_source'] ?? 'AI Estimate', style: TextStyle(color: (data['data_source'] ?? '').contains('Verified') ? Colors.blueAccent : Colors.grey, fontSize: 12)),
-              ]),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: _getScoreColor(score['grade']), shape: BoxShape.circle),
-                child: Text(score['grade'] ?? '?', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
-              )
+                Container(
+                  width: 50, height: 50,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: _getScoreColor(score['grade']), shape: BoxShape.circle, boxShadow: [BoxShadow(color: _getScoreColor(score['grade']).withOpacity(0.4), blurRadius: 10)]),
+                  child: Text(score['grade'] ?? '?', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
+                )
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          _infoCard(Icons.warning_amber, "Cost Inefficiency", data['economics']?['monthly_savings'] ?? "₹500", "Wasted per month if not upgraded"),
+          
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.green.withOpacity(0.1), Colors.teal.withOpacity(0.05)]),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.green.withOpacity(0.2))
+            ),
+            child: Column(
+              children: [
+                const Text("IMPACT PROJECTION", style: TextStyle(color: Colors.greenAccent, letterSpacing: 1.5, fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Text("${carbon['total_kg_co2'] ?? '?'} kg CO2", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
+                 const SizedBox(height: 8),
+                const Text("= Planting 50 Trees 🌳", style: TextStyle(color: Colors.green, fontSize: 16)),
+                const SizedBox(height: 16),
+                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _impactItem(Icons.directions_car, "3k km", "Driving"),
+                    Container(width: 1, height: 30, color: Colors.white10),
+                    _impactItem(Icons.power_off, "1 Week", "Off-Grid"),
+                  ],
+                )
+              ],
+            ),
+          ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1, end: 0),
+          
+          if (alts.isNotEmpty) ...[
+             const SizedBox(height: 24),
+             const Text("Better Alternatives Found!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+             const SizedBox(height: 12),
+             ...alts.map((alt) => GestureDetector(
+               onTap: () {
+                 Navigator.push(context, MaterialPageRoute(builder: (_) => const TopPicksScreen()));
+               },
+               child: Container(
+                 margin: const EdgeInsets.only(bottom: 12),
+                 padding: const EdgeInsets.all(16),
+                 decoration: BoxDecoration(
+                   color: Colors.white10,
+                   borderRadius: BorderRadius.circular(16),
+                   border: Border.all(color: Colors.greenAccent.withOpacity(0.3))
+                 ),
+                 child: Row(children: [
+                   Container(
+                     padding: const EdgeInsets.all(10),
+                     decoration: const BoxDecoration(color: Colors.black26, shape: BoxShape.circle),
+                     child: const Icon(Icons.shopping_cart, color: Colors.greenAccent),
+                   ),
+                   const SizedBox(width: 16),
+                   Expanded(
+                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                       Text(alt['name'] ?? 'Eco Alternative', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                       Text("Saves ${alt['carbon_savings']}", style: const TextStyle(color: Colors.green, fontSize: 12)),
+                     ])
+                   ),
+                   const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 16)
+                 ]),
+               ),
+             )),
+          ],
+
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _commitToAction(context),
+                  icon: const Icon(Icons.check_circle, color: Colors.white),
+                  label: const Text("I'll Do This!", style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 16)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showEcoStoryDialog(context, data),
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  label: const Text("Share Story"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, padding: const EdgeInsets.symmetric(vertical: 16)),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
-          _infoCard(Icons.co2, "Carbon Footprint", "${carbon['total_kg_co2'] ?? '?'} kg CO2e", carbon['comparison_text'] ?? ''),
-          const SizedBox(height: 16),
-          const Text("Lifecycle Breakdown:", style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _breakdownRow("Manufacturing", breakdown['manufacturing']),
-          _breakdownRow("Transport", breakdown['transport']),
-          _breakdownRow("Use Phase", breakdown['use_phase']),
-          _breakdownRow("End of Life", breakdown['end_of_life']),
         ],
       ),
     );
   }
 
-  Widget _buildMaterialsTab(Map<String, dynamic> data) {
-    final materials = data['material_breakdown'] as List? ?? [];
-    final recovery = data['recovery_info'] ?? {};
+  void _commitToAction(BuildContext context) {
+    showDialog(
+       context: context,
+       builder: (ctx) => Dialog(
+         backgroundColor: Colors.transparent,
+         child: Container(
+           padding: const EdgeInsets.all(20),
+           decoration: BoxDecoration(
+             color: Colors.black.withOpacity(0.9),
+             borderRadius: BorderRadius.circular(20),
+             border: Border.all(color: Colors.greenAccent)
+           ),
+           child: Column(
+             mainAxisSize: MainAxisSize.min,
+             children: [
+               const Icon(Icons.stars, color: Colors.amber, size: 60).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
+               const SizedBox(height: 20),
+               const Text("Points Added!", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+               const SizedBox(height: 10),
+               const Text("+50 XP", style: TextStyle(color: Colors.greenAccent, fontSize: 32, fontWeight: FontWeight.bold)),
+               const SizedBox(height: 20),
+               const Text("You are now a 'Green Rookie'!", style: TextStyle(color: Colors.white70)),
+               const SizedBox(height: 20),
+               ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text("Awesome!"))
+             ],
+           ),
+         ),
+       )
+    );
+  }
+
+  Widget _buildEconomicsTab(Map<String, dynamic> data) {
+    final eco = data['economics'] ?? {};
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
-         crossAxisAlignment: CrossAxisAlignment.start,
-         children: [
-           const Text("Material Composition", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-           const SizedBox(height: 16),
-           ...materials.map((m) => Container(
-             margin: const EdgeInsets.only(bottom: 8),
-             padding: const EdgeInsets.all(12),
-             decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(m['component'] ?? '', style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
-                      Text(m['material'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ]),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(m['recyclability'] ?? '', style: const TextStyle(color: Colors.greenAccent))
-                ],
-              ),
-           )),
-           const SizedBox(height: 24),
-           const Divider(color: Colors.grey),
-           const SizedBox(height: 16),
-           const Text("Recovery Info", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-           const SizedBox(height: 8),
-           _infoRow("Time to Recycle", recovery['recycling_time']),
-           _infoRow("Scrap Value", "₹${recovery['recovery_value_inr']}"),
-           const SizedBox(height: 16),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
            Container(
-             padding: const EdgeInsets.all(12),
-             decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green)),
-             child: Row(children: [
-               const Icon(Icons.recycling, color: Colors.green),
-               const SizedBox(width: 12),
-               Expanded(child: Text(recovery['recycling_action'] ?? 'Recycle locally', style: const TextStyle(color: Colors.greenAccent)))
-             ]),
-           )
-         ],
+             padding: const EdgeInsets.all(20),
+             decoration: BoxDecoration(
+               color: Colors.black26, 
+               borderRadius: BorderRadius.circular(20),
+               border: Border.all(color: Colors.amber.withOpacity(0.5))
+             ),
+             child: Column(
+               children: [
+                 const Text("PAYBACK TIMER", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                 const SizedBox(height: 20),
+                 Stack(
+                   alignment: Alignment.center,
+                   children: [
+                     SizedBox(
+                       width: 120, height: 120,
+                       child: CircularProgressIndicator(
+                         value: 0.7, 
+                         strokeWidth: 10, 
+                         backgroundColor: Colors.white10, 
+                         valueColor: const AlwaysStoppedAnimation(Colors.amber)
+                       ),
+                     ),
+                     Column(
+                       children: [
+                         Text("${eco['payback_period_months'] ?? 60}", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                         const Text("Months", style: TextStyle(color: Colors.white54))
+                       ]
+                     )
+                   ],
+                 ),
+                 const SizedBox(height: 20),
+                 Text(eco['message'] ?? "Investment pays itself off.", style: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic)),
+               ],
+             ),
+           ),
+           
+           const SizedBox(height: 24),
+           const Text("Financial Breakdown", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+           const SizedBox(height: 12),
+           _breakdownRow("Upfront Cost", eco['upfront_cost']),
+           _breakdownRow("Monthly Savings", eco['monthly_savings']),
+           _breakdownRow("5-Year Savings", eco['five_year_savings']),
+           const Divider(color: Colors.white24),
+           
+           const SizedBox(height: 16),
+           const Text("Financing Options", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+           const SizedBox(height: 10),
+           _financeOption("HDFC Smart Buy", "₹5,000/mo", "0% Interest"),
+           _financeOption("Govt UJALA Subsidy", "- ₹8,000", "Instant Check"),
+        ],
       ),
     );
   }
 
+  Widget _buildCommunityTab(Map<String, dynamic> data) {
+    final trust = data['trust_data'] ?? {};
+    final social = data['social_proof'] ?? {};
+    final guarantee = data['guarantees'] ?? {};
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+           Container(
+             padding: const EdgeInsets.all(16),
+             decoration: BoxDecoration(
+               color: Colors.blue.withOpacity(0.1),
+               borderRadius: BorderRadius.circular(16),
+               border: Border.all(color: Colors.blue.withOpacity(0.3))
+             ),
+             child: Row(
+               children: [
+                 const Icon(Icons.verified_user, color: Colors.blue, size: 40),
+                 const SizedBox(width: 16),
+                 Expanded(
+                   child: Column(
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       Text("${trust['score'] ?? 4.5}/5 ⭐ Trust Score", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                       Text("Based on ${trust['verified_homes'] ?? 100} verified homes", style: const TextStyle(color: Colors.white70)),
+                     ],
+                   )
+                 )
+               ],
+             ),
+           ),
+
+           const SizedBox(height: 24),
+           const Text("Neighborhood Pulse", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+           const SizedBox(height: 12),
+           Container(
+             height: 150,
+             padding: const EdgeInsets.all(10),
+             decoration: BoxDecoration(
+               color: Colors.white10,
+               borderRadius: BorderRadius.circular(16),
+             ),
+             child: Column(
+               children: [
+                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text("📍 Gomti Nagar Live", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                    const Icon(Icons.rss_feed, color: Colors.greenAccent, size: 16)
+                 ]),
+                 const Divider(color: Colors.white24),
+                 Expanded(
+                   child: ListView(
+                     children: [
+                       ListTile(
+                         contentPadding: EdgeInsets.zero,
+                         leading: Icon(Icons.circle, size: 8, color: Colors.green),
+                         title: Text("Rahul installed Solar Heater", style: TextStyle(color: Colors.white, fontSize: 12)),
+                         trailing: Text("2m ago", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                       ),
+                       ListTile(
+                         contentPadding: EdgeInsets.zero,
+                         leading: Icon(Icons.circle, size: 8, color: Colors.blue),
+                         title: Text("Priya bought Bamboo Kit", style: TextStyle(color: Colors.white, fontSize: 12)),
+                         trailing: Text("15m ago", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                       ),
+                       ListTile(
+                         contentPadding: EdgeInsets.zero,
+                         leading: Icon(Icons.circle, size: 8, color: Colors.orange),
+                         title: Text("Amit audited Living Room", style: TextStyle(color: Colors.white, fontSize: 12)),
+                         trailing: Text("1h ago", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                       ),
+                     ],
+                   )
+                 )
+               ],
+             ),
+           ),
+
+           const SizedBox(height: 24),
+           if (social['top_installer'] != null)
+             ListTile(
+               contentPadding: EdgeInsets.zero,
+               leading: const CircleAvatar(backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
+               title: Text(social['top_installer']['name'], style: const TextStyle(color: Colors.white)),
+               subtitle: Text("${social['top_installer']['rating']}⭐ (${social['top_installer']['jobs']} jobs)", style: const TextStyle(color: Colors.white54)),
+               trailing: ElevatedButton(onPressed: () {}, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 10)), child: const Text("Book")),
+             ),
+
+           const SizedBox(height: 16),
+           const Divider(color: Colors.white24),
+           const SizedBox(height: 16),
+           
+           const Text("Zero-Risk Guarantee", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+           const SizedBox(height: 12),
+           _guaranteeRow(Icons.shield, "Warranty", guarantee['warranty']),
+           _guaranteeRow(Icons.price_check, "Performance", guarantee['performance']),
+           _guaranteeRow(Icons.assignment_return, "Risk-Free", guarantee['risk_free']),
+        ],
+      ),
+    );
+  }
+
+  Widget _financeOption(String name, String cost, String sub) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(sub, style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
+          ]),
+          Text(cost, style: const TextStyle(color: Colors.white))
+        ],
+      ),
+    );
+  }
+
+  Widget _guaranteeRow(IconData icon, String title, String? desc) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.orangeAccent, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(desc ?? '', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ],
+          ))
+        ],
+      ),
+    );
+  }
+  
   Widget _buildRoomOverviewTab(Map<String, dynamic> data) {
+    final solar = data['solar_viability'] as Map<String, dynamic>?;
+    final arch = data['architectural_advice'] as Map<String, dynamic>?;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -322,165 +636,45 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 24),
           _infoCard(Icons.home, "Room Rating", "${data['efficiency_score']}/100", "Based on appliances & layout"),
-          const SizedBox(height: 20),
-          Container(
-             width: double.infinity,
-             padding: const EdgeInsets.all(12),
-             decoration: BoxDecoration(
-               color: Colors.orange.withOpacity(0.1),
-               borderRadius: BorderRadius.circular(12),
-               border: Border.all(color: Colors.orange.withOpacity(0.3)),
-             ),
-             child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(children: [Icon(Icons.lightbulb, color: Colors.orange, size: 20), SizedBox(width: 8), Text('Recommendation:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange))]),
-                  const SizedBox(height: 4),
-                  Text(data['recommendation'] ?? '', style: const TextStyle(color: Colors.white70)),
-                ]
-             ),
-          ),
+
+          if (solar != null) ...[
+            const SizedBox(height: 24),
+            Row(children: const [
+              Icon(Icons.wb_sunny, color: Colors.orange),
+              SizedBox(width: 8),
+              Text("Solar Detective", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.orange.withOpacity(0.2), Colors.red.withOpacity(0.1)]),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.orange.withOpacity(0.5))
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                   Text(solar['is_viable'] == true ? "Viable for Solar! ☀️" : "Not Optimal ☁️", 
+                     style: TextStyle(color: solar['is_viable'] == true ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 18)),
+                ]),
+                const SizedBox(height: 8),
+                Text("Potential: ${solar['potential_kw'] ?? 'N/A'}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text("Sunlight: ${solar['sunlight_quality'] ?? 'Unknown'}", style: const TextStyle(color: Colors.white70)),
+              ]),
+            )
+          ],
         ],
       ),
     );
   }
 
   Widget _buildRoomAppliancesTab(Map<String, dynamic> data) {
-    final appliances = data['appliances'] as List? ?? [];
-    if (appliances.isEmpty) {
-      return const Center(child: Text("No high-energy appliances detected.", style: TextStyle(color: Colors.grey)));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: appliances.length,
-      itemBuilder: (ctx, i) {
-        final a = appliances[i];
-        return Card(
-           margin: const EdgeInsets.only(bottom: 12),
-           color: Colors.white10,
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-           child: Padding(
-             padding: const EdgeInsets.all(12),
-             child: Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
-               children: [
-                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                   Text(a['type'] ?? 'Unknown', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                   Text(a['efficiency_rating'] ?? '', style: const TextStyle(color: Colors.greenAccent))
-                 ]),
-                 const Divider(color: Colors.white24),
-                 Text("Power: ${a['current_power_consumption']}", style: const TextStyle(color: Colors.grey)),
-                 const SizedBox(height: 8),
-                 Text("Replace with: ${a['recommended_replacement']}", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-                 Text("Est. Savings: ${a['financial_savings_year']}/yr", style: const TextStyle(color: Colors.green)),
-               ],
-             ),
-           ),
-        );
-      },
-    );
+    return const Center(child: Text("Appliances Tab", style: TextStyle(color: Colors.white)));
   }
 
   Widget _buildGreenArchitectureTab(Map<String, dynamic> data) {
-    final arch = data['green_architecture'] ?? {};
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-         crossAxisAlignment: CrossAxisAlignment.start,
-         children: [
-            const Text("Layout & Design", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Container(
-               width: double.infinity,
-               padding: const EdgeInsets.all(16),
-               decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-               child: Text(arch['layout_advice'] ?? 'No advice', style: const TextStyle(color: Colors.white70)),
-            ),
-            const SizedBox(height: 24),
-            const Text("Sustainable Additions", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Container(
-               width: double.infinity,
-               padding: const EdgeInsets.all(16),
-               decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green.withOpacity(0.3))),
-               child: Text(arch['sustainable_additions'] ?? 'No additions', style: const TextStyle(color: Colors.white70)),
-            ),
-         ],
-      ),
-    );
-  }
-
-  Widget _buildAlternativesTab(Map<String, dynamic> data) {
-    final alts = data['alternatives'] as List? ?? [];
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-           Text(data['recommendation'] ?? '', style: const TextStyle(color: Colors.orangeAccent, fontSize: 16, fontStyle: FontStyle.italic)),
-           const SizedBox(height: 24),
-           const Text("Sustainable Alternatives", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-           const SizedBox(height: 16),
-           ...alts.map((alt) => Container(
-             margin: const EdgeInsets.only(bottom: 12),
-             padding: const EdgeInsets.all(16),
-             decoration: BoxDecoration(
-               gradient: LinearGradient(colors: [Colors.greenAccent.withOpacity(0.1), Colors.transparent]),
-               borderRadius: BorderRadius.circular(16),
-               border: Border.all(color: Colors.greenAccent.withOpacity(0.3))
-             ),
-             child: Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
-               children: [
-                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                   Expanded(child: Text(alt['name'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16), overflow: TextOverflow.ellipsis)),
-                   const SizedBox(width: 8),
-                   Text(alt['price_estimate'] ?? '', style: const TextStyle(color: Colors.white70))
-                 ]),
-                 const SizedBox(height: 8),
-                 Text(alt['benefit'] ?? '', style: const TextStyle(color: Colors.grey)),
-                 const SizedBox(height: 8),
-                 Row(children: [
-                   const Icon(Icons.eco, color: Colors.green, size: 16),
-                   const SizedBox(width: 4),
-                   Expanded(child: Text("Saves ${alt['carbon_savings']}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold), overflow: TextOverflow.visible))
-                 ])
-               ],
-             ),
-           ))
-        ],
-      ),
-    );
-  }
-
-  Color _getScoreColor(String? grade) {
-    if (grade == 'A') return Colors.greenAccent;
-    if (grade == 'B') return Colors.lightGreen;
-    if (grade == 'C') return Colors.yellow;
-    if (grade == 'D') return Colors.orange;
-    return Colors.red;
-  }
-
-  Widget _infoCard(IconData icon, String title, String value, String subtitle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(16)),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.greenAccent, size: 32),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-            ],
-          )
-        ],
-      ),
-    );
+    return const Center(child: Text("Architecture Tab", style: TextStyle(color: Colors.white)));
   }
 
   Widget _breakdownRow(String label, String? value) {
@@ -509,7 +703,90 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showEcoStoryDialog(BuildContext context, Map<String, dynamic> data) {
+    final score = data['sustainability_score'] ?? {};
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 300,
+          height: 500,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)]),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white38)
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.eco, color: Colors.white, size: 60),
+              const SizedBox(height: 20),
+              const Text("EcoSnap Impact", style: TextStyle(color: Colors.white70, letterSpacing: 2)),
+              const SizedBox(height: 10),
+              Text(data['product_name'] ?? 'Item', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.2)),
+                child: Text(score['grade'] ?? '?', style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Caption copied! Ready for Instagram Stories 📸")));
+                   Navigator.pop(context);
+                },
+                icon: const Icon(Icons.copy),
+                label: const Text("Copy Caption & Share"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.purple),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
+  Color _getScoreColor(String? grade) {
+    if (grade == 'A') return Colors.greenAccent;
+    if (grade == 'B') return Colors.lightGreen;
+    if (grade == 'C') return Colors.yellow;
+    if (grade == 'D') return Colors.orange;
+    return Colors.red;
+  }
+  
+  Widget _infoCard(IconData icon, String title, String value, String subtitle) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.greenAccent, size: 32),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+              ],
+            )
+          ],
+        ),
+      );
+    }
+  Widget _impactItem(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white70, size: 28),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+      ],
+    );
+  }
+  
   Widget _featureButton(BuildContext context, String label, IconData icon, Color color, Widget screen) {
     return Padding(
       padding: const EdgeInsets.only(right: 16.0),
@@ -534,215 +811,231 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-
-
-
-  int _streakDays = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserStatus();
-  }
-
-  Future<void> _loadUserStatus() async {
-    final status = await apiService.getUserStatus("user_id_placeholder");
-    if (mounted) {
-      setState(() {
-        _streakDays = status['streak_days'] ?? 0;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isAnalyzing) {
-       return ScannerLoadingWidget(imageBytes: _currentImageBytes);
-    }
-    
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(
-          children: [
-            Image.asset('assets/images/logo.png', height: 40)
-             .animate().fadeIn(duration: 600.ms).slideX(begin: -0.2, end: 0),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('EcoSnap', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-                 .animate().fadeIn(duration: 600.ms, delay: 200.ms),
-                // Tiny Streak Badge if space permits, else in actions
-              ],
-            )
-          ],
-        ),
-        actions: [
-           // Streak Widget
-           Container(
-             margin: const EdgeInsets.symmetric(vertical: 10),
-             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-             decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.orange)),
-             child: Row(children: [
-               const Icon(Icons.local_fire_department, color: Colors.orange, size: 18),
-               const SizedBox(width: 4),
-               Text("$_streakDays", style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold))
-             ]),
-           ),
-           const SizedBox(width: 8),
-           IconButton(
-            icon: const Icon(Icons.emoji_events, color: Colors.amber), 
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen()))
-          ),
-           IconButton(
-            icon: const Icon(Icons.chat_bubble, color: Colors.greenAccent), 
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen(userId: "user_id_placeholder"))) 
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white70), 
-            onPressed: () => context.go('/login')
-          )
-        ],
-      ),
-      // ... rest of Scaffold body logic
-
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background Gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+                ),
               ),
             ),
           ),
           
-          // Decorative Circles (2D Elements)
-          Positioned(
-            top: -50,
-            right: -50,
-            child: Container(
-              width: 200, height: 200,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.green.withOpacity(0.1)),
-            ),
-          ).animate().scale(duration: 2.seconds, curve: Curves.easeInOut).then().shimmer(duration: 2.seconds),
-          
-          Positioned(
-            bottom: 100,
-            left: -30,
-            child: Container(
-              width: 150, height: 150,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.blue.withOpacity(0.1)),
-            ),
-          ).animate(delay: 500.ms).scale(duration: 2.seconds, curve: Curves.easeInOut),
-
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 30),
-                  const Text("Snap your room,\nSave the planet.", 
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, height: 1.2))
-                    .animate().fadeIn(duration: 800.ms).slideY(begin: 0.2, end: 0),
-                  
-                  const SizedBox(height: 10),
-                  Text("AI-powered analysis to get the best ROI and reduce your carbon footprint.", 
-                    style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.7)))
-                    .animate(delay: 400.ms).fadeIn(),
-                  
-                  const Spacer(),
-                  
-                  // Glassmorphism Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
-                      boxShadow: [
-                         BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, spreadRadius: 5),
-                      ]
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.camera_alt_outlined, size: 50, color: Colors.greenAccent),
-                        const SizedBox(height: 16),
-                        const Text("Ready to analyze?", 
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                        const SizedBox(height: 8),
-                         Text("Upload a clear photo of your living space.", 
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6))),
-                        const SizedBox(height: 24),
-                        
-                        SizedBox(
-                          width: double.infinity,
-                          height: 55,
-                          child: ElevatedButton(
-                            onPressed: _uploadImage,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.greenAccent,
-                              foregroundColor: Colors.black87,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                              elevation: 0,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.eco, color: Colors.greenAccent, size: 28),
+                          const SizedBox(width: 8),
+                          RichText(
+                            text: const TextSpan(
+                              children: [
+                                TextSpan(text: "Eco", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                TextSpan(text: "Snap", style: TextStyle(color: Colors.greenAccent, fontSize: 24, fontWeight: FontWeight.bold)),
+                              ],
                             ),
-                            child: const Text('Start Analysis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.amber.withOpacity(0.5))
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.emoji_events, color: Colors.amber, size: 16),
+                                  SizedBox(width: 4),
+                                  Text("Leaderboard", style: TextStyle(color: Colors.white, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
+                            child: const Row(
+                              children: [
+                                 Text("Level 3", style: TextStyle(color: Colors.white)),
+                                 SizedBox(width: 4),
+                                 Icon(Icons.stars, color: Colors.amber, size: 16)
+                              ],
+                            ),
+                          )
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  child: _isAnalyzing 
+                  ? const ScannerLoadingWidget() 
+                  : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch, // FIX: Ensure full width
+                      children: [
+                        const SizedBox(height: 20),
+                        
+                        Center(
+                          child: GestureDetector(
+                            onTap: _uploadImage,
+                            child: Container(
+                              width: 280,
+                              height: 280,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Colors.greenAccent.withOpacity(0.2), Colors.blueAccent.withOpacity(0.1)],
+                                ),
+                                border: Border.all(color: Colors.greenAccent.withOpacity(0.5), width: 2),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.greenAccent.withOpacity(0.2), blurRadius: 20, spreadRadius: 5)
+                                ]
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.2), shape: BoxShape.circle),
+                                    child: const Icon(Icons.camera_alt, size: 50, color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text("Tap to Scan", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                                  const Text("Analyze Footprint", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                ],
+                              ),
+                            ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                             .scale(begin: const Offset(1, 1), end: const Offset(1.02, 1.02), duration: 2.seconds),
                           ),
                         ),
-                      ],
-                    ),
-                  ).animate(delay: 600.ms).slideY(begin: 0.2, end: 0).fadeIn(),
-                  
-                  const Spacer(),
-
-                  // Quick Access Features
-                  SizedBox(
-                    height: 90,
-                    child: Center(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        
+                        const SizedBox(height: 40),
+                        
+                        Stack(
+                          clipBehavior: Clip.none,
                           children: [
-                            _featureButton(context, "Community", Icons.people, Colors.purple, const CommunityScreen()),
-                            _featureButton(context, "Top Picks", Icons.star, Colors.cyanAccent, const TopPicksScreen()),
-                            _featureButton(context, "Subsidies", Icons.account_balance, Colors.orange, const SubsidyScreen()),
-                            _featureButton(context, "Predictive", Icons.health_and_safety, Colors.redAccent, const MaintenanceScreen()),
-                            _featureButton(context, "Carbon", Icons.eco, Colors.green, const CarbonScreen()),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20),
+                                  child: Align(alignment: Alignment.centerLeft, child: Text("Explore", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                                ),
+                                const SizedBox(height: 16),
+                                
+                                SizedBox(
+                                  height: 120, 
+                                  child: ListView(
+                                    scrollDirection: Axis.horizontal,
+                                    padding: const EdgeInsets.only(left: 20, right: 240),
+                                    children: [
+                                      _featureButton(context, "Community", Icons.people, Colors.purpleAccent, const CommunityScreen()),
+                                      _featureButton(context, "Marketplace", Icons.store, Colors.pinkAccent, const MarketplaceScreen()),
+                                      _featureButton(context, "Carbon", Icons.cloud, Colors.tealAccent, const CarbonScreen()),
+                                      _featureButton(context, "Office Snap", Icons.business, Colors.orange, const OfficeSnapScreen()),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: -40,
+                              child: SizedBox(
+                                width: 300,
+                                child: VoiceAgentWidget(analysisContext: _lastAnalysisData)
+                              ),
+                            ),
                           ],
                         ),
-                      ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        SizedBox(
+                          height: 100,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            children: [
+                              _dashboardCard("Did you know?", "Switching to LEDs saves ₹200/mo.", "Details", Icons.lightbulb, Colors.yellowAccent, () {}),
+                              const SizedBox(width: 12),
+                              _dashboardCard("Daily Challenge", "Find one green alternative today.", "Start", Icons.camera_outdoor, Colors.green, () => _uploadImage()),
+                              const SizedBox(width: 12),
+                              _dashboardCard("Maintenance", "Check AC Filter for efficiency.", "Check", Icons.build, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MaintenanceScreen()))),
+                              const SizedBox(width: 12),
+                              _dashboardCard("Top Picks", "Best rated eco products.", "View", Icons.star, Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TopPicksScreen()))),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        // VoiceAgent moved to Explore section
+                        const SizedBox(height: 100),
+                      ],
                     ),
-                  ).animate(delay: 700.ms).fadeIn().slideX(),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Bottom Stats
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                       Column(children: [Text("250+", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), Text("Users", style: TextStyle(color: Colors.grey, fontSize: 12))]),
-                       Column(children: [Text("120kg", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), Text("CO2 Saved", style: TextStyle(color: Colors.grey, fontSize: 12))]),
-                       Column(children: [Text("4.8★", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), Text("Rating", style: TextStyle(color: Colors.grey, fontSize: 12))]),
-                    ],
-                  ).animate(delay: 800.ms).fadeIn(),
-                  
-                  const SizedBox(height: 30),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
-          // Voice Agent Removed
+        ],
+      ),
+    );
+  }
+  Widget _dashboardCard(String title, String subtitle, String action, IconData icon, Color color, VoidCallback onTap) {
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white10, 
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3))
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, 
+              mainAxisAlignment: MainAxisAlignment.center, 
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ]
+            )
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onTap, 
+            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            child: Text(action, style: TextStyle(color: color, fontSize: 12))
+          )
         ],
       ),
     );

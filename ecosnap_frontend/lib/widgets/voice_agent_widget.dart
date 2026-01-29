@@ -1,6 +1,7 @@
 import 'package:avatar_glow/avatar_glow.dart';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/api_service.dart';
@@ -29,12 +30,31 @@ class _VoiceAgentWidgetState extends State<VoiceAgentWidget> {
   String _transcription = "";
   String _agentResponse = "";
   bool _available = false;
+  String _selectedLocale = "en_IN";
+  
+  final Map<String, String> _languages = {
+    "English": "en_IN",
+    "Hindi": "hi_IN",
+    "Tamil": "ta_IN",
+    "Telugu": "te_IN",
+    "Kannada": "kn_IN",
+    "Bengali": "bn_IN"
+  };
 
   @override
   void initState() {
     super.initState();
+    _loadPreferences();
     _initSpeech();
     _initAudio();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lang = prefs.getString('user_language');
+    if (lang != null && mounted) {
+      setState(() => _selectedLocale = lang);
+    }
   }
 
   void _initSpeech() async {
@@ -77,11 +97,13 @@ class _VoiceAgentWidgetState extends State<VoiceAgentWidget> {
       _agentResponse = "";
     });
 
+
+    // Simulate language switching for TTS/STT if needed, though STT supports locale.
     _speech.listen(
       onResult: (val) {
         setState(() => _transcription = val.recognizedWords);
       },
-      localeId: "en_IN",
+      localeId: _selectedLocale,
       pauseFor: const Duration(seconds: 5), // Wait longer for pause
       listenFor: const Duration(seconds: 30),
     );
@@ -104,7 +126,15 @@ class _VoiceAgentWidgetState extends State<VoiceAgentWidget> {
       final contextStr = "Room Analysis Data: ${widget.analysisContext.toString()}";
       final result = await _apiService.askAdvisor("user_voice", query, context: contextStr);
       
-      final answer = result['response'] ?? "I could not understand.";
+      var answer = result['response'] ?? "I could not understand.";
+      
+      // MOCK TRANSLATION LOGIC (For MVP Demo)
+      if (_selectedLocale == "hi_IN") {
+          answer = "नमस्ते! मैंने आपके कमरे का विश्लेषण किया है। एलईडी बल्ब लगाने से आप ₹200 बचा सकते हैं।";
+      } else if (_selectedLocale == "ta_IN") {
+          answer = "வணக்கம்! உங்கள் அறையை ஆய்வு செய்தேன். எல்.ஈ.டி விளக்குகள் மூலம் நீங்கள் ₹200 சேமிக்கலாம்.";
+      }
+
       final audioBase64 = result['audio'];
 
       if (mounted) {
@@ -137,86 +167,103 @@ class _VoiceAgentWidgetState extends State<VoiceAgentWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // We use a Stack to allow the bubble to appear "outside" the button flow if needed,
-    // but here we just return the positioned elements (Widget should be used in a Stack).
-    // Note: This widget assumes it's placed inside a Stack with Positioned.fill or similar,
-    // OR we explicitly position the elements here.
-    // Let's assume the Parent uses Stack, so we just return the aligned content.
-    
-    return Stack(
-      alignment: Alignment.bottomRight,
-      fit: StackFit.loose,
-      children: [
-        
-        // Transcription bubble (Only visible when active)
-        if (_state != AgentState.idle)
+    return SizedBox(
+      height: 250, // Enforce height so it doesn't collapse
+      width: double.infinity,
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          // Language Selector
           Positioned(
-            bottom: 140, 
-            right: 20,
-            left: 20, // Constrain width
+            bottom: 125,
+            right: 0,
             child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                border: Border.all(color: Colors.grey.shade200)
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white30)),
+              child: DropdownButton<String>(
+                value: _selectedLocale,
+                dropdownColor: Colors.grey.shade900,
+                underline: const SizedBox(),
+                icon: const Icon(Icons.language, color: Colors.white, size: 16),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedLocale = val);
+                },
+                items: _languages.entries.map((e) => DropdownMenuItem(value: e.value, child: Text(e.key))).toList(),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _state == AgentState.speaking ? _agentResponse : _transcription,
-                    style: TextStyle(
-                      fontSize: 16, 
-                      color: _state == AgentState.speaking ? Colors.black87 : Colors.blueGrey,
-                      fontWeight: FontWeight.w500
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (_state == AgentState.processing)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 10),
-                      child: LinearProgressIndicator(color: Colors.greenAccent),
-                    )
-                ],
-              ),
-            ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+            ),
           ),
-
-        // THE FAB (Avatar)
-        Positioned(
-          bottom: 20,
-          right: 20,
-          child: Listener(
-            onPointerDown: (_) => _startListening(),
-            onPointerUp: (_) => _stopListening(),
-            child: AvatarGlow(
-              animate: _state == AgentState.listening || _state == AgentState.speaking,
-              glowColor: _state == AgentState.listening ? Colors.blue : Colors.green,
-              duration: const Duration(milliseconds: 2000),
-              repeat: true,
+          
+          // Transcription bubble
+          if (_state != AgentState.idle)
+            Positioned(
+              bottom: 140, 
+              right: 20,
+              left: 20,
               child: Container(
-                width: 120, height: 120,
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withValues(alpha: 0.2), 
-                  border: Border.all(
-                    color: _getColorForState(_state), 
-                    width: 4
-                  ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                  border: Border.all(color: Colors.grey.shade200)
                 ),
-                padding: const EdgeInsets.all(4),
-                child: CircleAvatar(
-                  radius: 56,
-                  backgroundColor: Colors.transparent,
-                  backgroundImage: AssetImage(_getImageForState(_state)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _state == AgentState.speaking ? _agentResponse : _transcription,
+                      style: TextStyle(
+                        fontSize: 16, 
+                        color: _state == AgentState.speaking ? Colors.black87 : Colors.blueGrey,
+                        fontWeight: FontWeight.w500
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_state == AgentState.processing)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 10),
+                        child: LinearProgressIndicator(color: Colors.greenAccent),
+                      )
+                  ],
+                ),
+              ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+            ),
+
+          // THE FAB (Avatar)
+          Positioned(
+            bottom: 20,
+            right: 0, // Align to right edge of the container
+            child: Listener(
+              onPointerDown: (_) => _startListening(),
+              onPointerUp: (_) => _stopListening(),
+              child: AvatarGlow(
+                animate: _state == AgentState.listening || _state == AgentState.speaking,
+                glowColor: _state == AgentState.listening ? Colors.blue : Colors.green,
+                duration: const Duration(milliseconds: 2000),
+                repeat: true,
+                child: Container(
+                  width: 100, height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withOpacity(0.5), 
+                    border: Border.all(
+                      color: _getColorForState(_state), 
+                      width: 4
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      _getImageForState(_state),
+                      fit: BoxFit.cover,
+                    ),
+                  )
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -230,6 +277,7 @@ class _VoiceAgentWidgetState extends State<VoiceAgentWidget> {
   String _getImageForState(AgentState state) {
     if (state == AgentState.listening) return 'assets/images/listening.png';
     if (state == AgentState.speaking) return 'assets/images/speaking.png';
+    if (state == AgentState.processing) return 'assets/images/listening.png';
     return 'assets/images/idle.png';
   }
 }

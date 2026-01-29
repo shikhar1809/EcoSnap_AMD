@@ -64,7 +64,7 @@ class LoginScreen extends StatelessWidget {
                   
                   // Login Button
                   ElevatedButton(
-                    onPressed: () => context.go('/'),
+                    onPressed: () => context.go('/onboarding'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.greenAccent,
                       foregroundColor: Colors.black,

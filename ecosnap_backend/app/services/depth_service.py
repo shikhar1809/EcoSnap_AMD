@@ -42,8 +42,8 @@ class DepthService:
             depth_norm = (depth_array - depth_min) / (depth_max - depth_min)
             
             # Apply colormap (matplotlib)
-            # 'inferno' maps low depth (far) to black/purple and high depth (close) to yellow
-            colormap = plt.get_cmap("inferno") 
+            # 'viridis' is excellent for depth perception (Yellow=Close, Blue=Far)
+            colormap = plt.get_cmap("viridis") 
             depth_colored = colormap(depth_norm)
             
             # Convert RGBA to RGB (drop alpha) and scale to 0-255

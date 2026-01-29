@@ -1,0 +1,16 @@
+The AI Analysis 
+I want to target three major journey
+1. User who just want to find green alternative 
+and want to know the carbon footprint of the items
+and their immediate greener cheaper alternative.
+2. User who want to know the carbon footprint
+of their work or personel spaces.
+(check their room for carbon footprint and get
+estimate cost drop potential).
+3. User who want to plan their workspace
+equipped a cleaner greender tech stack.
+(get info on expected prices , best approaches )
+4.User who wants to analysis of their bills 
+and get green recommendations and changes.
+5.Sepcial user joruney based on unique input
+based on special request.

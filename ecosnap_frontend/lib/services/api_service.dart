@@ -5,7 +5,7 @@ class ApiService {
   // Use 10.0.2.2 for Android emulator to access localhost
   // Use localhost for iOS simulator or web
   // Use 192.168.1.2 for LAN access (Mobile + PC)
-  static const String baseUrl = 'http://192.168.1.2:8000'; 
+  static const String baseUrl = 'http://localhost:8000'; 
   
   final Dio _dio = Dio(BaseOptions(
     baseUrl: baseUrl,
@@ -22,10 +22,11 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getAnalysisQuestions(List<int> bytes, String filename) async {
+  Future<Map<String, dynamic>> getAnalysisQuestions(List<int> bytes, String filename, {String? userNote}) async {
     try {
       final formData = FormData.fromMap({
         'files': MultipartFile.fromBytes(bytes, filename: filename),
+        if (userNote != null) 'user_note': userNote,
       });
       final response = await _dio.post('/analysis/analyze/context', data: formData);
       return response.data;

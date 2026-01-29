@@ -81,3 +81,15 @@ async def trade_credits(req: TradeRequest):
 @router.get("/history/{user_id}")
 async def get_history(user_id: str):
     return [t for t in transactions_db if t.user_id == user_id]
+
+from fastapi import UploadFile, File
+from app.services.ai_service import AIService
+
+@router.post("/analyze_bill")
+async def analyze_bill_endpoint(file: UploadFile = File(...)):
+    """
+    Upload an electricity bill image to get extracted data.
+    """
+    contents = await file.read()
+    data = AIService.analyze_bill(contents)
+    return data
