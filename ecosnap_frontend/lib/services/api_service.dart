@@ -22,14 +22,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getAnalysisQuestions(List<int> bytes, String filename, {String? userNote}) async {
+  Future<Map<String, dynamic>> getAnalysisQuestions(List<int> bytes, String filename, {String? userNote, String scanMode = "quick"}) async {
     try {
       final formData = FormData.fromMap({
         'files': MultipartFile.fromBytes(bytes, filename: filename),
         if (userNote != null) 'user_note': userNote,
+        'scan_mode': scanMode,  // Pass quick/deep mode to backend
       });
       final response = await _dio.post('/analysis/analyze/context', data: formData);
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -51,7 +52,7 @@ class ApiService {
         '/analysis/analyze', 
         data: formData,
       );
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -63,7 +64,7 @@ class ApiService {
         'message': message,
         'context': context,
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString(), 'response': 'Could not connect to Advisor.'};
     }
@@ -93,7 +94,7 @@ class ApiService {
   Future<Map<String, dynamic>> getUserStatus(String userId) async {
     try {
       final response = await _dio.get('/gamification/status/$userId');
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {};
     }
@@ -114,7 +115,7 @@ class ApiService {
         'user_id': userId,
         'item_id': itemId,
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       if (e is DioException && e.response != null) {
         throw e.response!.data['detail'] ?? "Redemption failed";
@@ -132,7 +133,7 @@ class ApiService {
         'emissions_tco2': emissions,
         'production_tonnes': production
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -141,7 +142,7 @@ class ApiService {
   Future<Map<String, dynamic>> getCarbonWallet(String userId) async {
     try {
       final response = await _dio.get('/carbon/wallet/$userId');
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -150,7 +151,7 @@ class ApiService {
   Future<Map<String, dynamic>> getOffsetProjects(String userId) async {
     try {
       final response = await _dio.get('/carbon/offset/projects/$userId');
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -163,7 +164,7 @@ class ApiService {
         'project_type': type,
         'project_data': data
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -172,7 +173,7 @@ class ApiService {
   Future<Map<String, dynamic>> getMarketPrice() async {
     try {
       final response = await _dio.get('/carbon/ccts/market/price');
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -180,14 +181,15 @@ class ApiService {
 
   // ==================== SUBSIDIES ====================
 
-  Future<Map<String, dynamic>> recommendSubsidies(String state, String action, {double? capacityKw}) async {
+  Future<Map<String, dynamic>> recommendSubsidies(String state, String action, {double? capacityKw, String? incomeBracket}) async {
     try {
       final response = await _dio.post('/subsidies/recommend', data: {
         'state': state,
         'action': action,
-        'capacity_kw': capacityKw
+        'capacity_kw': capacityKw,
+        'income_bracket': incomeBracket
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -196,9 +198,18 @@ class ApiService {
   Future<Map<String, dynamic>> getSubsidyCoverage() async {
     try {
       final response = await _dio.get('/subsidies/coverage');
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
+    }
+  }
+
+  Future<List<dynamic>> getTrendingSubsidies(String state) async {
+    try {
+      final response = await _dio.get('/subsidies/trending/$state');
+      return response.data as List<dynamic>;
+    } catch (e) {
+      return [];
     }
   }
 
@@ -208,7 +219,7 @@ class ApiService {
         'state': state,
         'capacity_kw': capacityKw
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -219,7 +230,7 @@ class ApiService {
   Future<Map<String, dynamic>> getCommunityFeed(String city) async {
     try {
       final response = await _dio.get('/community/feed', queryParameters: {'city': city});
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -228,7 +239,7 @@ class ApiService {
   Future<Map<String, dynamic>> getCommunityLeaderboard(String city) async {
     try {
       final response = await _dio.get('/community/leaderboard', queryParameters: {'city': city});
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -237,7 +248,7 @@ class ApiService {
   Future<Map<String, dynamic>> getCommunityInsights(String city) async {
     try {
       final response = await _dio.get('/community/insights/$city');
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -250,7 +261,7 @@ class ApiService {
       final response = await _dio.get('/marketplace/products', queryParameters: 
         category != null ? {'category': category} : {}
       );
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -261,7 +272,7 @@ class ApiService {
       final response = await _dio.get('/marketplace/demo/solar-system', queryParameters: {
         'capacity_kw': capacityKw
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
@@ -272,7 +283,7 @@ class ApiService {
       final response = await _dio.post('/carbon/analyze_bill', data: {
         'image': base64Image,
       });
-      return response.data;
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }

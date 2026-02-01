@@ -17,6 +17,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   bool _isNeighborhood = false;
   String _userPincode = "400050";
   String _userCity = "Mumbai";
+  final Map<int, bool> _boostedUsers = {}; // Track local boosts
 
   @override
   void initState() {
@@ -234,6 +235,32 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                     color: Colors.orange, size: 16),
                                 const SizedBox(width: 8)
                               ]),
+                            // 10/10 Gamification: Interactive Boost Button
+                            IconButton(
+                              icon: Icon(
+                                _boostedUsers[index] == true ? Icons.favorite : Icons.favorite_border,
+                                color: _boostedUsers[index] == true ? Colors.redAccent : Colors.grey,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _boostedUsers[index] = !(_boostedUsers[index] ?? false);
+                                });
+                                if (_boostedUsers[index] == true) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("You boosted ${user['name']}! 🚀"),
+                                      duration: const Duration(seconds: 1),
+                                      backgroundColor: Colors.pinkAccent, 
+                                      behavior: SnackBarBehavior.floating,
+                                    )
+                                  );
+                                }
+                              },
+                            ).animate(target: _boostedUsers[index] == true ? 1 : 0).scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: 200.ms).then().scale(begin: const Offset(1.2, 1.2), end: const Offset(1, 1)),
+                            
+                            const SizedBox(width: 8),
+
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),

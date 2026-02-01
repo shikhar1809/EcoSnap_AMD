@@ -1,5 +1,29 @@
+import 'package:flutter/material.dart';
 
-  Widget _buildRoomOverviewTab(Map<String, dynamic> data) {
+Widget infoCard(IconData icon, String title, String value, String subtitle) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+    child: Row(
+      children: [
+        Icon(icon, color: Colors.greenAccent, size: 32),
+        const SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          ],
+        )
+      ],
+    ),
+  );
+}
+
+Widget buildRoomOverviewTab(Map<String, dynamic> data) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -20,7 +44,7 @@
             ],
           ),
           const SizedBox(height: 24),
-          _infoCard(Icons.home, "Room Rating", "${data['efficiency_score']}/100", "Based on appliances & layout"),
+          infoCard(Icons.home, "Room Rating", "${data['efficiency_score']}/100", "Based on appliances & layout"),
           const SizedBox(height: 20),
           Container(
              width: double.infinity,
@@ -44,7 +68,7 @@
     );
   }
 
-  Widget _buildRoomAppliancesTab(Map<String, dynamic> data) {
+  Widget buildRoomAppliancesTab(Map<String, dynamic> data) {
     final appliances = data['appliances'] as List? ?? [];
     if (appliances.isEmpty) {
       return const Center(child: Text("No high-energy appliances detected.", style: TextStyle(color: Colors.grey)));
@@ -80,7 +104,7 @@
     );
   }
 
-  Widget _buildGreenArchitectureTab(Map<String, dynamic> data) {
+  Widget buildGreenArchitectureTab(Map<String, dynamic> data) {
     final arch = data['green_architecture'] ?? {};
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),

@@ -72,6 +72,11 @@ async def get_schemes_by_type(scheme_type: SchemeType):
         "total": len(schemes)
     }
 
+@router.get("/trending/{state}")
+async def get_trending_subsidies(state: str):
+    """Get most used subsidies in the user's area"""
+    return SubsidyDatabase.get_trending_schemes(state)
+
 @router.post("/recommend")
 async def recommend_subsidies(req: SubsidyRecommendationRequest):
     """

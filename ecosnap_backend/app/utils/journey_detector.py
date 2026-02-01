@@ -3,35 +3,24 @@ Journey Detection Logic for EcoSnap
 Determines which user journey to execute based on image analysis
 """
 
-def detect_journey_from_gemini_response(gemini_text: str, image_description: str = "") -> str:
+def detect_journey_from_gemini_response(gemini_response: any, image_description: str = "") -> str:
     """
-    Detect journey type from Gemini's analysis
-    
-    Returns: SPACE_AUDIT, SPACE_PLANNING, FIND_ALTERNATIVE, or SPECIAL
+    Detect journey type from Gemini's analysis.
+    Now 10/10 AI Powered: Trusts the JSON output from the 'Brain' directly.
     """
-    text_lower = (gemini_text + " " + image_description).lower()
+    # If the input is already a dictionary (from JSON), use it directly
+    if isinstance(gemini_response, dict):
+        return gemini_response.get("journey_id", "SPECIAL")
     
-    # SPACE_AUDIT: House/Building exterior with solar potential
-    house_keywords = ['house', 'building', 'roof', 'rooftop', 'exterior', 'facade', 'home exterior', 'residential']
-    if any(keyword in text_lower for keyword in house_keywords):
-        return "SPACE_AUDIT"
+    # Fallback for old string-based calls (legacy)
+    text_lower = str(gemini_response).lower()
     
-    # SPACE_PLANNING: Interior room (furnished or empty)
-    room_keywords = ['room', 'interior', 'living room', 'bedroom', 'kitchen', 'office', 'furniture', 'ac', 'air conditioner']
-    if any(keyword in text_lower for keyword in room_keywords):
-        # Check if furnished or empty
-        furnished_keywords = ['furniture', 'sofa', 'table', 'chair', 'appliance', 'ac', 'tv']
-        if any(keyword in text_lower for keyword in furnished_keywords):
-            return "SPACE_AUDIT"  # Furnished room = audit existing
-        else:
-            return "SPACE_PLANNING"  # Empty room = plan new
+    # SPACE_AUDIT maps to SOLAR_AUDIT in our new system
+    if "solar_audit" in text_lower or "space_audit" in text_lower: return "SOLAR_AUDIT"
+    if "room_audit" in text_lower: return "ROOM_AUDIT"
+    if "space_planning" in text_lower: return "SPACE_PLANNING"
+    if "find_alternative" in text_lower: return "FIND_ALTERNATIVE"
     
-    # FIND_ALTERNATIVE: Specific products
-    product_keywords = ['bottle', 'watch', 'phone', 'laptop', 'bag', 'shoes', 'clothing', 'electronics', 'plastic']
-    if any(keyword in text_lower for keyword in product_keywords):
-        return "FIND_ALTERNATIVE"
-    
-    # Default fallback
     return "SPECIAL"
 
 

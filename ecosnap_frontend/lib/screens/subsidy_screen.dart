@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ecosnap_frontend/services/api_service.dart';
+import 'package:intl/intl.dart';
 
 class SubsidyScreen extends StatefulWidget {
   const SubsidyScreen({Key? key}) : super(key: key);
@@ -15,12 +16,14 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
   // Data
   Map<String, dynamic> _allSchemes = {};
   Map<String, dynamic> _coverageStats = {};
+  List<dynamic> _trendingSchemes = [];
   bool _isLoading = true;
   String _selectedState = "All";
   
   // Recommender Form
   String _recState = "Maharashtra";
   String _recAction = "solar";
+  String _recIncome = "< 10L";
   final TextEditingController _capacityController = TextEditingController(text: "3");
   Map<String, dynamic>? _recommendationResult;
 
@@ -29,6 +32,7 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
   ];
   
   final List<String> _actions = ["solar", "ev", "energy_efficiency"];
+  final List<String> _incomeBrackets = ["< 10L", "10-20L", "> 20L"];
 
   @override
   void initState() {
@@ -40,15 +44,16 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
   Future<void> _fetchSchemes() async {
     setState(() => _isLoading = true);
     try {
-      final schemes = await _apiService.getSubsidyCoverage(); 
-      // Note: Ideal would be to fetch all schemes, but for now we rely on coverage stats + separate state fetch if needed
-      // Actually, let's fetch all schemes for the list
-      // Depending on API implementation, we might simulate "All" by fetching coverage or central
-      // Re-using coverage stats for overhead info
+      // Parallel fetch
+      final results = await Future.wait([
+        _apiService.getSubsidyCoverage(),
+        _apiService.getTrendingSubsidies("Maharashtra") // Default for trending
+      ]);
       
-      // Let's implement a custom fetch for the "Schemes" tab inside the build or lazy load
-      // For now, let's just get coverage stats
-      _coverageStats = schemes;
+      if (results[0] != null) {
+        _coverageStats = Map<String, dynamic>.from(results[0] as Map);
+      }
+      _trendingSchemes = results[1] as List<dynamic>;
       
       setState(() => _isLoading = false);
     } catch (e) {
@@ -62,7 +67,8 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
       final res = await _apiService.recommendSubsidies(
         _recState, 
         _recAction, 
-        capacityKw: double.tryParse(_capacityController.text) ?? 2.5
+        capacityKw: double.tryParse(_capacityController.text) ?? 2.5,
+        incomeBracket: _recIncome
       );
       setState(() => _recommendationResult = res);
     } catch (e) {
@@ -112,8 +118,8 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
           labelColor: Colors.amber,
           unselectedLabelColor: Colors.white60,
           tabs: const [
-            Tab(text: "Schemes"),
-            Tab(text: "Recommender"),
+            Tab(text: "Exploer"),
+            Tab(text: "Check Eligibility"),
             Tab(text: "Tracker"),
           ],
         ),
@@ -132,47 +138,101 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
   }
 
   Widget _buildSchemesTab() {
-    // For demo, we might need to fetch list dynamically or mock
-    // Let's use a FutureBuilder for list of schemes based on _selectedState
-    
-    return Column(
-      children: [
-        // Filter
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: Colors.black12,
-          child: Row(
-            children: [
-              const Text("Filter by State:", style: TextStyle(color: Colors.white70)),
-              const SizedBox(width: 15),
-              Expanded(
-                child: DropdownButton<String>(
-                  value: _selectedState,
-                  dropdownColor: const Color(0xFF1A1A2E),
-                  style: const TextStyle(color: Colors.white),
-                  isExpanded: true,
-                  underline: Container(height: 1, color: Colors.amber),
-                  items: _states.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                  onChanged: (v) => setState(() => _selectedState = v!),
-                ),
-              )
-            ],
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Trending Section
+          if (_trendingSchemes.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 5),
+              child: Row(
+                children: const [
+                  Icon(Icons.local_fire_department, color: Colors.orangeAccent),
+                  SizedBox(width: 8),
+                  Text("Trending in Your Area", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 140, // Height for horizontal cards
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                scrollDirection: Axis.horizontal,
+                itemCount: _trendingSchemes.length,
+                itemBuilder: (ctx, i) {
+                  final s = _trendingSchemes[i];
+                  return Container(
+                    width: 200,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [Colors.purpleAccent.withOpacity(0.2), Colors.blueAccent.withOpacity(0.2)]),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.white12)
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(s['name'] ?? "Scheme", maxLines: 2, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                             Text("${s['users_applied'] ?? '2k+'} Applied", style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
+                             const SizedBox(height: 5),
+                             ElevatedButton(
+                               onPressed: () => _apply("TREND_$i", s['name']),
+                               style: ElevatedButton.styleFrom(
+                                 backgroundColor: Colors.white,
+                                 foregroundColor: Colors.black,
+                                 minimumSize: const Size(double.infinity, 30),
+                                 padding: EdgeInsets.zero
+                               ),
+                               child: const Text("Apply Found"),
+                             )
+                          ],
+                        )
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+          
+          const Divider(color: Colors.white12, thickness: 1),
+          
+          // Filter
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Text("Filter by State:", style: TextStyle(color: Colors.white70)),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: DropdownButton<String>(
+                    value: _selectedState,
+                    dropdownColor: const Color(0xFF1A1A2E),
+                    style: const TextStyle(color: Colors.white),
+                    isExpanded: true,
+                    underline: Container(height: 1, color: Colors.amber),
+                    items: _states.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    onChanged: (v) => setState(() => _selectedState = v!),
+                  ),
+                )
+              ],
+            ),
           ),
-        ),
-        
-        // List
-        Expanded(
-          child: FutureBuilder(
-            future: _selectedState == "All" 
-                ? _apiService.getSubsidyCoverage() // Mock/Proxy
-                : _selectedState == "All" ? null : null, // Simplify: Just a manual list or mock
-            // Actually, let's just create a static list for demo purposes if API fetch is complex in this context
-            // But we SHOULD use the API. 
-            // Let's assume there's an API method `getSchemes(state)` or similar. 
-            // I added `getSubsidyCoverage` but not list all.
-            // Let's fake it with a static list that "reacts" to state for the UI demo using the data we know exists in backend
-            builder: (ctx, snapshot) {
-              // Demo data visualization
+          
+          // List
+          ListView.builder(
+            shrinkWrap: true, // Needed inside ScrollView
+            physics: const NeverScrollableScrollPhysics(), // Scroll handled by parent
+            padding: const EdgeInsets.all(16),
+            itemCount: 6, // Demo limit
+            itemBuilder: (ctx, i) {
               final schemes = [
                 {"name": "PM Surya Ghar", "type": "Central", "amount": "₹78,000", "state": "All"},
                 {"name": "FAME II EV Subsidy", "type": "Central", "amount": "₹1.5 Lakh", "state": "All"},
@@ -181,38 +241,35 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
                 {"name": "Karnataka Solar Policy", "type": "State", "amount": "₹20,000", "state": "Karnataka"},
                 {"name": "Gujarat Solar Rooftop", "type": "State", "amount": "₹15,000", "state": "Gujarat"},
               ].where((s) => _selectedState == "All" || s['state'] == _selectedState || s['type'] == "Central").toList();
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: schemes.length,
-                itemBuilder: (ctx, i) {
-                  final s = schemes[i];
-                  return Card(
-                    color: Colors.white.withOpacity(0.05),
-                    margin: const EdgeInsets.only(bottom: 15),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(20),
-                      title: Text(s['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      subtitle: Text("${s['type']} Government Scheme", style: const TextStyle(color: Colors.white54)),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(s['amount']!, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 5),
-                          const Icon(Icons.arrow_forward, color: Colors.white30, size: 16)
-                        ],
-                      ),
-                      onTap: () => _apply("SCHEME_$i", s['name']!),
-                    ),
-                  );
-                },
+              
+              if (i >= schemes.length) return const SizedBox.shrink();
+              final s = schemes[i];
+              
+              return Card(
+                color: Colors.white.withOpacity(0.05),
+                margin: const EdgeInsets.only(bottom: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(20),
+                  title: Text(s['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  subtitle: Text("${s['type']} Government Scheme", style: const TextStyle(color: Colors.white54)),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(s['amount']!, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 5),
+                      const Icon(Icons.arrow_forward, color: Colors.white30, size: 16)
+                    ],
+                  ),
+                  onTap: () => _apply("SCHEME_$i", s['name']!),
+                ),
               );
             },
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
@@ -222,8 +279,8 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text("Smart Subsidy Finder 🤖", style: TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold)),
-          const Text("Find every scheme you are eligible for.", style: TextStyle(color: Colors.white54, fontSize: 12)),
+          const Text("Smart Eligibility Checker 🤖", style: TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text("Answer 3 questions to check instant eligibility.", style: TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(height: 20),
           
           DropdownButtonFormField<String>(
@@ -244,13 +301,24 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
             onChanged: (v) => setState(() => _recAction = v!),
           ),
           const SizedBox(height: 15),
-          if (_recAction == "solar")
-            TextField(
+          DropdownButtonFormField<String>(
+            value: _recIncome,
+            dropdownColor: const Color(0xFF1A1A2E),
+            style: const TextStyle(color: Colors.white),
+            decoration: _inputDecoration("Annual Income"),
+            items: _incomeBrackets.map((s) => DropdownMenuItem(value: s, child: Text(s.toUpperCase()))).toList(),
+            onChanged: (v) => setState(() => _recIncome = v!),
+          ),
+          
+          if (_recAction == "solar") ...[
+            const SizedBox(height: 15),
+             TextField(
               controller: _capacityController,
               style: const TextStyle(color: Colors.white),
               keyboardType: TextInputType.number,
               decoration: _inputDecoration("System Capacity (kW)"),
             ),
+          ],
 
           const SizedBox(height: 20),
           ElevatedButton(
@@ -260,7 +328,7 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
               padding: const EdgeInsets.symmetric(vertical: 15),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text("Find Subsidies", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            child: const Text("Check Eligibility", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
           
           const SizedBox(height: 30),
@@ -276,6 +344,20 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
               ),
               child: Column(
                 children: [
+                  // Eligibility Badge
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        SizedBox(width: 5),
+                        Text("You are Eligible!", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))
+                      ]
+                    ),
+                  ),
                   const Text("Total Potential Subsidy", style: TextStyle(color: Colors.white70)),
                   Text("₹${NumberFormat('#,##,###').format(_recommendationResult!['total_subsidy'])}", 
                     style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),

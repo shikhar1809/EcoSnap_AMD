@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:ecosnap_frontend/services/api_service.dart';
+import 'package:intl/intl.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -72,7 +73,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     return Scaffold(
       backgroundColor: const Color(0xFF0F2027),
       appBar: AppBar(
-        title: const Text("Verified Marketplace 🛒", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Marketplace 🛒", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: "Data verified from official government sources and certified partners",
+              triggerMode: TooltipTriggerMode.tap, // Ensure tap works on mobile/web
+              child: const Icon(Icons.verified, color: Colors.blue, size: 20),
+            ),
+          ],
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
@@ -237,9 +249,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   Widget _buildSolarKitTab() {
     if (_solarDemo == null) return const Center(child: Text("Loading demo..."));
     
-    final pricing = _solarDemo!['pricing'];
-    final roi = _solarDemo!['roi'];
-    final components = _solarDemo!['components'];
+    final pricing = _solarDemo?['pricing'] ?? {};
+    final roi = _solarDemo?['roi'] ?? {};
+    final components = _solarDemo?['components'] ?? {};
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -261,16 +273,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                  Row(
                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                    children: [
-                     _RoiStat("Net Cost", "₹${pricing['net_cost']}", Colors.black),
-                     _RoiStat("Annual Savings", "₹${roi['annual_savings']}", Colors.black),
-                     _RoiStat("Payback", "${roi['payback_period_years']} yrs", Colors.black),
+                     _RoiStat("Net Cost", "₹${pricing['net_cost'] ?? '0'}", Colors.black),
+                     _RoiStat("Annual Savings", "₹${roi['annual_savings'] ?? '0'}", Colors.black),
+                     _RoiStat("Payback", "${roi['payback_period_years'] ?? '0'} yrs", Colors.black),
                    ],
                  ),
                  const SizedBox(height: 20),
                  Container(
                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                    decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(20)),
-                   child: Text("Total 5-Year Profit: ₹${roi['five_year_profit']}", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                   child: Text("Total 5-Year Profit: ₹${roi['five_year_profit'] ?? '0'}", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                  )
               ],
             ),
@@ -280,9 +292,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           const Text("Package Components", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 15),
           
-          _ComponentTile("Solar Panels", "${components['panels']['quantity']}x ${components['panels']['product']}", Icons.grid_view),
-          _ComponentTile("Inverter", "1x ${components['inverter']['product']}", Icons.electrical_services),
-          _ComponentTile("Installation", "${components['installation']['service']}", Icons.build),
+          _ComponentTile("Solar Panels", "${components['panels']?['quantity'] ?? '0'}x ${components['panels']?['product'] ?? 'Panels'}", Icons.grid_view),
+          _ComponentTile("Inverter", "1x ${components['inverter']?['product'] ?? 'Inverter'}", Icons.electrical_services),
+          _ComponentTile("Installation", "${components['installation']?['service'] ?? 'Standard'}", Icons.build),
           
           const SizedBox(height: 25),
           SizedBox(

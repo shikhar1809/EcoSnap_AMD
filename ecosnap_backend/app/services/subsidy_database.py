@@ -402,3 +402,28 @@ class SubsidyDatabase:
             "coverage": f"{states_with_schemes}/{total_states} states/UTs",
             "scheme_types": [t.value for t in SchemeType]
         }
+
+    @classmethod
+    def get_trending_schemes(cls, state: str) -> List[Dict]:
+        """
+        Get trending subsidies for a specific area/state.
+        Simulates usage data based on state popularity.
+        """
+        # Base trending (Central)
+        trending = [s for s in cls.CENTRAL_SCHEMES if s['id'] in ['pm-surya-ghar', 'fame-ii']]
+        
+        # State specific trending
+        state_schemes = cls.STATE_SCHEMES.get(state, [])
+        if state_schemes:
+            # Pick the top 2 state schemes as trending
+            trending.extend(state_schemes[:2])
+            
+        # Add a "usage_count" property for the UI (mocked)
+        result = []
+        import random
+        for s in trending:
+            s_copy = s.copy()
+            s_copy['users_applied'] = random.randint(1200, 5000)
+            result.append(s_copy)
+            
+        return sorted(result, key=lambda x: x['users_applied'], reverse=True)

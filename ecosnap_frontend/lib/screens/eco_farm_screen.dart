@@ -142,26 +142,54 @@ class _EcoFarmScreenState extends State<EcoFarmScreen> with SingleTickerProvider
           : Stack(
             children: [
                // 0. The SUN (Animated)
-                // 0. The SUN (Realistic)
-                Positioned(
-                  top: 50, right: 20,
-                  child: Container(
-                    width: 100, height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [Colors.white, Colors.yellow, Colors.orangeAccent, Colors.transparent],
-                        stops: [0.1, 0.4, 0.7, 1.0],
-                      ),
-                      boxShadow: [
-                        BoxShadow(color: Colors.orange.withOpacity(0.5), blurRadius: 40, spreadRadius: 10),
-                        BoxShadow(color: Colors.yellowAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 5)
-                      ]
-                    ),
-                  )
-                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .scaleXY(begin: 1.0, end: 1.05, duration: 4.seconds, curve: Curves.easeInOut), // Gentle Heat Pulse
-                ),
+                // 0. The SUN (Chill Vibe Edition ☁️)
+                 Positioned(
+                   top: -30, right: -30,
+                   child: Stack(
+                     alignment: Alignment.center,
+                     children: [
+                       // 1. Soft Outer Glow (The "Vibe")
+                       Container(
+                         width: 200, height: 200,
+                         decoration: BoxDecoration(
+                           shape: BoxShape.circle,
+                           boxShadow: [
+                             BoxShadow(color: Colors.orangeAccent.withOpacity(0.2), blurRadius: 60, spreadRadius: 20),
+                           ]
+                         ),
+                       ).animate(onPlay: (c) => c.repeat(reverse: true))
+                        .scale(begin: Offset(1.0, 1.0), end: Offset(1.1, 1.1), duration: 8.seconds), // Super slow breathing
+
+                       // 2. Chill Rings (Retro/Lo-Fi)
+                       for (int i = 0; i < 3; i++)
+                         Container(
+                           width: 140.0 + (i * 30), height: 140.0 + (i * 30),
+                           decoration: BoxDecoration(
+                             shape: BoxShape.circle,
+                             border: Border.all(color: Colors.white.withOpacity(0.1 - (i * 0.02)), width: 2),
+                           ),
+                         ).animate(onPlay: (c) => c.repeat())
+                          .rotate(duration: (10 + i * 5).seconds),
+
+                       // 3. The Core (Smooth & Warm)
+                       Container(
+                         width: 100, height: 100,
+                         decoration: BoxDecoration(
+                           shape: BoxShape.circle,
+                           gradient: LinearGradient(
+                             begin: Alignment.topLeft, end: Alignment.bottomRight,
+                             colors: [Colors.amber.shade200, Colors.orange.shade300], 
+                           ),
+                           boxShadow: [
+                             BoxShadow(color: Colors.orange.withOpacity(0.4), blurRadius: 20, offset: Offset(0, 10))
+                           ]
+                         ),
+                         child: Icon(Icons.music_note, color: Colors.white.withOpacity(0.2), size: 40), // Subtle "Lo-Fi" nod
+                       ).animate(onPlay: (c) => c.repeat(reverse: true))
+                        .moveY(begin: 0, end: -5, duration: 4.seconds, curve: Curves.easeInOut), // Gentle Bobbing
+                     ],
+                   ),
+                 ),
              // 1. THE 3D WORLD (Behind everything)
              Positioned.fill(
                child: Column(

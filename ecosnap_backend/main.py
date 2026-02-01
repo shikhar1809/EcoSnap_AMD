@@ -16,10 +16,11 @@ app.add_middleware(
 )
 
 app.include_router(users.router, prefix="/users", tags=["users"])
-from app.api.routes import analysis, chat, gamification
+from app.api.routes import analysis, chat, gamification, marketplace
 app.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(gamification.router, prefix="/gamification", tags=["gamification"])
+app.include_router(marketplace.router, prefix="/marketplace", tags=["marketplace"])
 
 from app.api.routes import community, subsidies, predictive, carbon, green_tech
 app.include_router(community.router, prefix="/community", tags=["community"])

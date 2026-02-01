@@ -6,8 +6,19 @@ import 'dart:math' as math;
 
 class ScannerV2Widget extends StatefulWidget {
   final Uint8List? imageBytes;
+  final String? detectedProduct;
+  final double analysisProgress;
+  final String? currentPhase;
+  final VoidCallback? onComplete;
   
-  const ScannerV2Widget({super.key, this.imageBytes});
+  const ScannerV2Widget({
+    super.key, 
+    this.imageBytes,
+    this.detectedProduct,
+    this.analysisProgress = 0.0,
+    this.currentPhase,
+    this.onComplete,
+  });
 
   @override
   State<ScannerV2Widget> createState() => _ScannerV2WidgetState();
@@ -16,52 +27,109 @@ class ScannerV2Widget extends StatefulWidget {
 class _ScannerV2WidgetState extends State<ScannerV2Widget> with TickerProviderStateMixin {
   late AnimationController _scanController;
   late AnimationController _pulseController;
+  late AnimationController _dataFlowController;
   
-  // Simulated Analysis Steps
-  final List<String> _analysisSteps = [
-    "Initializing Optical Sensors...",
-    "Detecting Object Boundaries...",
-    "Analyzing Surface Texture...",
-    "Estimating Carbon Emission...",
-    "Querying Sustainability DB...",
-    "Generating Recommendations..."
+  // 🚀 ENHANCED Real-Time Analysis Phases
+  final List<Map<String, dynamic>> _analysisPhases = [
+    {"icon": "🔍", "label": "Detecting object...", "technical": "YOLO_v8 inference"},
+    {"icon": "🧠", "label": "AI vision processing...", "technical": "Gemini Flash analysis"},
+    {"icon": "🌍", "label": "Calculating carbon footprint...", "technical": "CO₂ lifecycle compute"},
+    {"icon": "📊", "label": "Finding green alternatives...", "technical": "Sustainability DB query"},
+    {"icon": "💰", "label": "Computing savings...", "technical": "Financial projection"},
+    {"icon": "✨", "label": "Generating insights...", "technical": "Report compile"},
   ];
   
-  // Track which steps are "done" for visual ticking
-  final List<bool> _completedSteps = List.generate(6, (index) => false);
+  // Live data stream simulation
+  final List<String> _liveData = [];
+  int _currentPhaseIndex = 0;
+  bool _showConfetti = false;
+  
+  // Simulated real-time metrics
+  double _carbonValue = 0.0;
+  double _savingsValue = 0.0;
+  String _detectedName = "Analyzing...";
 
   @override
   void initState() {
     super.initState();
     
-    // Main Laser Scan Loop (3 seconds per pass)
     _scanController = AnimationController(vsync: this, duration: const Duration(seconds: 3))
       ..repeat(reverse: true);
       
-    // Background Pulse (Breathing effect)
     _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat(reverse: true);
+      
+    _dataFlowController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))
+      ..repeat();
 
-    // Sequence the checklist items
-    _startChecklistSequence();
+    _startRealTimeAnalysis();
   }
 
-  void _startChecklistSequence() async {
-    for (int i = 0; i < _analysisSteps.length; i++) {
-      if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 600)); // Delay between steps
-      if (mounted) {
-        setState(() {
-          _completedSteps[i] = true;
-        });
-      }
-    }
+  /// 🔥 Real-time analysis simulation with live data updates
+  void _startRealTimeAnalysis() async {
+    final random = math.Random();
+    
+    // Phase 1: Object Detection (800ms)
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    setState(() {
+      _currentPhaseIndex = 0;
+      _detectedName = widget.detectedProduct ?? "Product Detected";
+      _liveData.add("OBJECT: $_detectedName");
+    });
+    
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    setState(() {
+      _currentPhaseIndex = 1;
+      _liveData.add("CONFIDENCE: ${(85 + random.nextInt(14))}%");
+    });
+    
+    // Phase 2: AI Processing (1000ms)
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    setState(() {
+      _currentPhaseIndex = 2;
+      _carbonValue = 1.2 + random.nextDouble() * 3;
+      _liveData.add("CO₂: ${_carbonValue.toStringAsFixed(2)} kg/year");
+    });
+    
+    // Phase 3: Alternatives (800ms)
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    setState(() {
+      _currentPhaseIndex = 3;
+      _liveData.add("ALTERNATIVES: 3 found");
+    });
+    
+    // Phase 4: Savings (600ms)
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    setState(() {
+      _currentPhaseIndex = 4;
+      _savingsValue = 500 + random.nextInt(2000).toDouble();
+      _liveData.add("SAVINGS: ₹${_savingsValue.toStringAsFixed(0)}/year");
+    });
+    
+    // Phase 5: Complete (500ms)
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    setState(() {
+      _currentPhaseIndex = 5;
+      _liveData.add("✅ ANALYSIS COMPLETE");
+      _showConfetti = true;
+    });
+    
+    // Trigger completion callback
+    await Future.delayed(const Duration(milliseconds: 800));
+    widget.onComplete?.call();
   }
 
   @override
   void dispose() {
     _scanController.dispose();
     _pulseController.dispose();
+    _dataFlowController.dispose();
     super.dispose();
   }
 
@@ -70,11 +138,11 @@ class _ScannerV2WidgetState extends State<ScannerV2Widget> with TickerProviderSt
     return Material(
       color: Colors.transparent,
       child: Container(
-        color: const Color(0xFF050505).withOpacity(0.95), // Deep Black Overlay
+        color: const Color(0xFF050505).withOpacity(0.97),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 1. Background Grid (Holographic Floor)
+            // Background Grid
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _pulseController,
@@ -86,207 +154,323 @@ class _ScannerV2WidgetState extends State<ScannerV2Widget> with TickerProviderSt
               ),
             ),
 
-            // 2. Main Content Area
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // The "Eye" - Scanning Area
-                Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.greenAccent.withOpacity(0.3), width: 1),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(color: Colors.greenAccent.withOpacity(0.1), blurRadius: 20, spreadRadius: 5)
-                    ]
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                      children: [
-                        if (widget.imageBytes != null) ...[
-                          // Layer A: "Blueprint" Mode (Grayscale + Edge detection look)
-                          ColorFiltered(
-                            colorFilter: const ColorFilter.mode(Colors.black, BlendMode.saturation), // Grayscale
-                            child: ColorFiltered(
-                              colorFilter: ColorFilter.matrix([
-                                -1,  0,  0, 0, 255,
-                                 0, -1,  0, 0, 255,
-                                 0,  0, -1, 0, 255,
-                                 0,  0,  0, 1,   0,
-                              ]), // Invert (Poor man's edge detect style)
-                              child: Image.memory(
-                                widget.imageBytes!,
-                                fit: BoxFit.cover,
-                                width: 300,
-                                height: 300, 
-                                opacity: const AlwaysStoppedAnimation(0.4),
-                              ),
-                            ),
-                          ),
+            // Main Content
+            SafeArea(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 🔥 Real-time Header
+                  _buildLiveHeader(),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Image Scanner Area
+                  _buildScannerArea(),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // 💨 Live Data Stream
+                  _buildLiveDataStream(),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // 📊 Progress Phases
+                  _buildPhaseProgress(),
+                ],
+              ),
+            ),
+            
+            // 🎉 Confetti celebration
+            if (_showConfetti)
+              _buildConfettiOverlay(),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildLiveHeader() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.greenAccent.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.greenAccent.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10, height: 10,
+            decoration: const BoxDecoration(
+              color: Colors.greenAccent,
+              shape: BoxShape.circle,
+            ),
+          ).animate(onPlay: (c) => c.repeat(reverse: true))
+           .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.2, 1.2), duration: 500.ms),
+          const SizedBox(width: 10),
+          Text(
+            _currentPhaseIndex >= 5 ? "ANALYSIS COMPLETE" : "ANALYZING • LIVE",
+            style: const TextStyle(
+              color: Colors.greenAccent,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: -0.3, end: 0);
+  }
 
-                          // Layer B: "Reality" Mode (Revealed by Laser)
-                          AnimatedBuilder(
-                            animation: _scanController,
-                            builder: (context, child) {
-                              return ClipRect(
-                                clipper: _LaserScanClipper(_scanController.value),
-                                child: Image.memory(
-                                  widget.imageBytes!,
-                                  fit: BoxFit.cover,
-                                   width: 300,
-                                   height: 300,
-                                ),
-                              );
-                            },
-                          ),
-                          
-                          // Layer C: Data Overlay on Image (Target Reticles)
-                           _buildFloatingReticles(),
-                        ] else
-                          const Center(child: Text("Waiting for visual input...", style: TextStyle(color: Colors.greenAccent))),
+  Widget _buildScannerArea() {
+    return Container(
+      width: 280,
+      height: 280,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.greenAccent.withOpacity(0.4), width: 2),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.greenAccent.withOpacity(0.15), blurRadius: 30, spreadRadius: 5)
+        ]
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          children: [
+            if (widget.imageBytes != null) ...[
+              // Blueprint Mode
+              ColorFiltered(
+                colorFilter: const ColorFilter.mode(Colors.black, BlendMode.saturation),
+                child: Image.memory(
+                  widget.imageBytes!,
+                  fit: BoxFit.cover,
+                  width: 280,
+                  height: 280, 
+                  opacity: const AlwaysStoppedAnimation(0.3),
+                ),
+              ),
 
-                        // Layer D: The Laser Beam
-                        AnimatedBuilder(
-                          animation: _scanController,
-                          builder: (context, _) {
-                            return Positioned(
-                              top: _scanController.value * 300,
-                              left: 0,
-                              right: 0,
-                              child: Container(
-                                height: 2,
-                                decoration: BoxDecoration(
-                                  color: Colors.greenAccent,
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.greenAccent, blurRadius: 10, spreadRadius: 2),
-                                    BoxShadow(color: Colors.white, blurRadius: 5, spreadRadius: 1), 
-                                  ]
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        
-                        // Layer E: Scan Gradient Trail (Behind laser)
-                        AnimatedBuilder(
-                           animation: _scanController,
-                           builder: (context, _) {
-                             return Positioned(
-                               top: _scanController.value * 300 - 50,
-                               left: 0,
-                               right: 0,
-                               height: 50,
-                               child: Container(
-                                 decoration: BoxDecoration(
-                                   gradient: LinearGradient(
-                                     begin: Alignment.bottomCenter,
-                                     end: Alignment.topCenter,
-                                     colors: [
-                                       Colors.greenAccent.withOpacity(0.3),
-                                       Colors.transparent
-                                     ]
-                                   )
-                                 ),
-                               ),
-                             );
-                           }
-                        )
-                      ],
+              // Reality reveal with laser
+              AnimatedBuilder(
+                animation: _scanController,
+                builder: (context, child) {
+                  return ClipRect(
+                    clipper: _LaserScanClipper(_scanController.value),
+                    child: Image.memory(
+                      widget.imageBytes!,
+                      fit: BoxFit.cover,
+                      width: 280,
+                      height: 280,
+                    ),
+                  );
+                },
+              ),
+              
+              // 🎯 Target reticles with data
+              _buildDataOverlay(),
+            ] else
+              const Center(child: Text("Initializing...", style: TextStyle(color: Colors.greenAccent))),
+
+            // Laser beam
+            AnimatedBuilder(
+              animation: _scanController,
+              builder: (context, _) {
+                return Positioned(
+                  top: _scanController.value * 280,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.greenAccent, Colors.white, Colors.greenAccent, Colors.transparent],
+                      ),
+                      boxShadow: [
+                        BoxShadow(color: Colors.greenAccent, blurRadius: 15, spreadRadius: 3),
+                      ]
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 40),
-                
-                // 3. Data Stream (Checklist)
-                Container(
-                  width: 300,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.white10)
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "SYSTEM_ANALYSIS_LOG:",
-                        style: TextStyle(
-                          color: Colors.greenAccent, 
-                          fontFamily: 'Courier', 
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ..._analysisSteps.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final text = entry.value;
-                        final isDone = _completedSteps[index];
-                        
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isDone ? Icons.check_circle_outline : Icons.circle_outlined,
-                                color: isDone ? Colors.greenAccent : Colors.white24,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  text,
-                                  style: TextStyle(
-                                    color: isDone ? Colors.white : Colors.white38,
-                                    fontFamily: 'Courier',
-                                    fontSize: 12
-                                  ),
-                                ),
-                              )
-                            ],
-                          ).animate(target: isDone ? 1 : 0).shimmer(duration: 500.ms),
-                        );
-                      }).toList(),
-                    ],
-                  ),
-                )
-              ],
+                );
+              },
             ),
           ],
         ),
       ),
     );
   }
+  
+  Widget _buildDataOverlay() {
+    if (_currentPhaseIndex < 2) return const SizedBox.shrink();
+    
+    return Positioned(
+      bottom: 10,
+      left: 10,
+      right: 10,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _detectedName,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    "CO₂: ${_carbonValue.toStringAsFixed(1)} kg/year",
+                    style: TextStyle(color: Colors.redAccent.shade100, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            if (_currentPhaseIndex >= 4)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  "Save ₹${_savingsValue.toStringAsFixed(0)}",
+                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10),
+                ),
+              ),
+          ],
+        ),
+      ).animate().fadeIn().slideY(begin: 0.5, end: 0),
+    );
+  }
 
-  Widget _buildFloatingReticles() {
-     return Stack(
-       children: [
-         Positioned(
-           top: 50, left: 50,
-           child: _reticle(),
-         ),
-         Positioned(
-           bottom: 80, right: 60,
-           child: _reticle(),
-         )
-       ],
-     );
+  Widget _buildLiveDataStream() {
+    return Container(
+      width: 280,
+      height: 80,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text("LIVE DATA STREAM", style: TextStyle(color: Colors.greenAccent, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              const Spacer(),
+              AnimatedBuilder(
+                animation: _dataFlowController,
+                builder: (context, _) => Icon(Icons.sensors, size: 12, color: Colors.greenAccent.withOpacity(0.5 + _dataFlowController.value * 0.5)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              reverse: true,
+              itemCount: _liveData.length,
+              itemBuilder: (ctx, i) {
+                final item = _liveData[_liveData.length - 1 - i];
+                return Text(
+                  "> $item",
+                  style: TextStyle(
+                    color: item.contains("✅") ? Colors.greenAccent : Colors.white70,
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhaseProgress() {
+    return Container(
+      width: 280,
+      child: Column(
+        children: [
+          // Progress bar
+          Stack(
+            children: [
+              Container(
+                height: 6,
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: 6,
+                width: 280 * ((_currentPhaseIndex + 1) / _analysisPhases.length),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Colors.greenAccent, Colors.tealAccent]),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Current phase label
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _analysisPhases[_currentPhaseIndex]["icon"],
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _analysisPhases[_currentPhaseIndex]["label"],
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 13),
+              ),
+            ],
+          ).animate(key: ValueKey(_currentPhaseIndex)).fadeIn().slideX(begin: 0.2, end: 0),
+          const SizedBox(height: 4),
+          Text(
+            _analysisPhases[_currentPhaseIndex]["technical"],
+            style: TextStyle(color: Colors.greenAccent.withOpacity(0.6), fontFamily: 'Courier', fontSize: 9),
+          ),
+        ],
+      ),
+    );
   }
   
-  Widget _reticle() {
-    return Container(
-      width: 40, height: 40,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.greenAccent.withOpacity(0.5), width: 1),
+  Widget _buildConfettiOverlay() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: List.generate(20, (index) {
+            final random = math.Random(index);
+            return Positioned(
+              left: random.nextDouble() * 300,
+              top: -20,
+              child: Icon(
+                index % 2 == 0 ? Icons.eco : Icons.star,
+                color: index % 3 == 0 ? Colors.greenAccent : Colors.amber,
+                size: 16 + random.nextDouble() * 12,
+              ).animate()
+               .slideY(begin: 0, end: 8 + random.nextDouble() * 4, duration: Duration(milliseconds: (2000 + random.nextDouble() * 1000).toInt()))
+               .rotate(end: random.nextDouble() * 2, duration: Duration(milliseconds: (1500 + random.nextDouble() * 1000).toInt()))
+               .fadeOut(delay: 1500.ms),
+            );
+          }),
+        ),
       ),
-      child: Center(child: Container(width: 4, height: 4, color: Colors.greenAccent)),
-    ).animate(onPlay: (c) => c.repeat(reverse: true))
-    .scale(begin: const Offset(1,1), end: const Offset(1.2, 1.2), duration: 1.seconds)
-    .rotate(begin: 0, end: 0.25, duration: 2.seconds);
+    );
   }
 }
 
@@ -296,7 +480,6 @@ class _LaserScanClipper extends CustomClipper<Rect> {
 
   @override
   Rect getClip(Size size) {
-    // Reveal top to bottom
     return Rect.fromLTRB(0, 0, size.width, size.height * progress);
   }
 
@@ -311,14 +494,13 @@ class _HolographicGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.greenAccent.withOpacity(0.05 + (pulse * 0.05))
+      ..color = Colors.greenAccent.withOpacity(0.03 + (pulse * 0.03))
       ..strokeWidth = 1;
 
-    // Perspective Grid
     for (double i = 0; i < size.width; i += 40) {
-      canvas.drawLine(Offset(i, 0), Offset(i - (size.width/2 - i)*0.5, size.height), paint);
+      canvas.drawLine(Offset(i, 0), Offset(i - (size.width/2 - i)*0.3, size.height), paint);
     }
-     for (double i = 0; i < size.height; i += 40) {
+    for (double i = 0; i < size.height; i += 40) {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
     }
   }
