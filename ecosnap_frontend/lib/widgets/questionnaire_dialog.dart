@@ -18,7 +18,10 @@ class _QuestionnaireDialogState extends State<QuestionnaireDialog> {
   void initState() {
     super.initState();
     for (var q in widget.questions) {
-      if (q['type'] == 'text' || q['type'] == 'number') {
+      // Default to 'text' if type is missing
+      final type = q['type'] ?? 'text';
+      
+      if (type == 'text' || type == 'number') {
         _controllers[q['id']] = TextEditingController();
       }
       // Initialize Selects
@@ -38,80 +41,131 @@ class _QuestionnaireDialogState extends State<QuestionnaireDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.grey.shade900,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text("ScanCarbon Context", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      content: SingleChildScrollView(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 400,
+        constraints: const BoxConstraints(maxHeight: 600),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade900,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white24, width: 1),
+          boxShadow: [
+             BoxShadow(color: Colors.black54, blurRadius: 20, spreadRadius: 5)
+          ]
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-             const Text("Help us customize your report:", style: TextStyle(color: Colors.grey, fontSize: 13)),
-             const SizedBox(height: 16),
-             ...widget.questions.map((q) => _buildQuestionField(q)),
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("EcoSnap Context", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Colors.grey))
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Colors.white10),
+            
+            // Scrollable Content
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                     const Text("Help us customize your report:", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                     const SizedBox(height: 16),
+                     ...widget.questions.map((q) => _buildQuestionField(q)),
+                  ],
+                ),
+              ),
+            ),
+
+            const Divider(height: 1, color: Colors.white10),
+
+            // Footer
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.greenAccent, 
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16)
+                  ),
+                  onPressed: () {
+                    // Collect Text Answers
+                    _controllers.forEach((id, controller) {
+                      _answers[id] = controller.text;
+                    });
+                    widget.onSubmit(_answers);
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Run Analysis", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            )
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context), 
-          child: const Text("Cancel", style: TextStyle(color: Colors.grey))
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent, foregroundColor: Colors.black),
-          onPressed: () {
-            // Collect Text Answers
-            _controllers.forEach((id, controller) {
-              _answers[id] = controller.text;
-            });
-            widget.onSubmit(_answers);
-            Navigator.pop(context);
-          },
-          child: const Text("Analyze"),
-        )
-      ],
     );
   }
 
   Widget _buildQuestionField(Map<String, dynamic> q) {
+    final type = q['type'] ?? 'text'; // Default to text
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(q['text'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(q['text'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 8),
-          if (q['type'] == 'text' || q['type'] == 'number')
+          if (type == 'text' || type == 'number')
             TextField(
               controller: _controllers[q['id']],
-              keyboardType: q['type'] == 'number' ? TextInputType.number : TextInputType.text,
+              keyboardType: type == 'number' ? TextInputType.number : TextInputType.text,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Colors.white10,
+                fillColor: Colors.black54, // Darker background for contrast
                 hintText: "Type here...",
-                hintStyle: const TextStyle(color: Colors.grey),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                hintStyle: const TextStyle(color: Colors.white30),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white12)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.greenAccent)),
               ),
             )
           else if (q['type'] == 'select')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10)),
-              child: DropdownButton<String>(
-                value: _answers[q['id']],
-                dropdownColor: Colors.grey.shade800,
-                isExpanded: true,
-                underline: const SizedBox(),
-                style: const TextStyle(color: Colors.white),
-                items: (q['options'] as List).map<DropdownMenuItem<String>>((opt) {
-                  return DropdownMenuItem<String>(value: opt, child: Text(opt));
-                }).toList(),
-                onChanged: (val) {
-                  setState(() {
-                    _answers[q['id']] = val;
-                  });
-                },
+              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white12)),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _answers[q['id']],
+                  dropdownColor: Colors.grey.shade900,
+                  isExpanded: true,
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.greenAccent),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  items: (q['options'] as List).map<DropdownMenuItem<String>>((opt) {
+                    return DropdownMenuItem<String>(
+                      value: opt, 
+                      child: Text(opt, style: const TextStyle(color: Colors.white))
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _answers[q['id']] = val;
+                      print("Selected: $val"); // Debug print
+                    });
+                  },
+                ),
               ),
             )
         ],

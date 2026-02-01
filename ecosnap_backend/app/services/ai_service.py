@@ -3,13 +3,22 @@ from ultralytics import YOLO
 from PIL import Image
 import io
 import json
+import os
 from app.core.config import get_settings
 
 settings = get_settings()
 
-# Initialize Gemini
+# Demo Mode: Set to True for hackathon demo with curated responses
+DEMO_MODE = os.getenv("ECOSNAP_DEMO_MODE", "true").lower() == "true"
+
+# Initialize Gemini Models
 genai.configure(api_key=settings.GEMINI_API_KEY)
-model_gemini = genai.GenerativeModel('gemini-2.0-flash')
+
+# Quick Scan: Fast triage with Gemini 2.0 Flash
+model_gemini_quick = genai.GenerativeModel('gemini-2.0-flash')
+
+# Deep Scan: Advanced analysis with Gemini 2.0 Flash Thinking
+model_gemini_deep = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
 
 # Initialize YOLO (will download weights on first run)
 model_yolo = YOLO("yolov8n.pt") 
@@ -80,7 +89,8 @@ class AIService:
             }}
             """
             
-            response = model_gemini.generate_content([prompt, image])
+            # Use quick model for fast triage
+            response = model_gemini_quick.generate_content([prompt, image])
             text = AIService._clean_json_text(response.text)
             print(f"DEBUG: Triage Response: {text}")
             return json.loads(text)
@@ -90,28 +100,49 @@ class AIService:
             # Fallback safe response
             return {
                 "journey_id": "SPECIAL",
+                "confidence": 0.3,
                 "verification": {"detected_category": "Unknown", "question": "What would you like to analyze?"},
                 "questions": []
             }
+    
+    @staticmethod
+    def get_confidence_level(score: float) -> str:
+        """Return human-readable confidence level."""
+        if score >= 0.8:
+            return "High Confidence"
+        elif score >= 0.6:
+            return "Moderate Confidence"
+        else:
+            return "Low Confidence - Please verify"
 
     @staticmethod
-    def analyze_image(image_bytes: bytes, user_answers: dict):
+    def analyze_with_gemini(image_bytes: bytes, detected_objects: list, user_answers: dict):
         """
         Perform Deep Forensic Analysis based on the specific Journey ID.
+        Uses curated demo responses in DEMO_MODE for reliable hackathon demos.
         """
+        # Extract journey_id first
+        journey_id = user_answers.get('journey_id', 'FIND_ALTERNATIVE')
+        print(f"DEBUG: Running Analysis for Journey: {journey_id}, DEMO_MODE: {DEMO_MODE}")
+        
+        # DEMO MODE: Return curated, accurate responses
+        if DEMO_MODE:
+            try:
+                from app.data.demo_responses import get_demo_response
+                demo_data = get_demo_response(journey_id)
+                print(f"DEBUG: Returning curated demo response for {journey_id}")
+                return demo_data
+            except ImportError as e:
+                print(f"DEBUG: Demo responses not available, falling back to AI: {e}")
+        
         try:
             image = Image.open(io.BytesIO(image_bytes))
             
             # Extract info
-            detected_objects = user_answers.get('detected_objects', [])
             answers_context = json.dumps(user_answers)
             object_labels = [d['name'] for d in detected_objects]
             
-            # The Frontend should ideally pass the 'journey_id' in user_answers now.
-            # If not present (legacy flow), we infer or default.
-            journey_id = user_answers.get('journey_id', 'FIND_ALTERNATIVE')
-            
-            print(f"DEBUG: Running Analysis for Journey: {journey_id}")
+            print(f"DEBUG: AI Analysis for Journey: {journey_id}")
 
             prompt = f"""
             You are EcoSnap's Forensic Sustainability Engine.
@@ -218,7 +249,8 @@ class AIService:
             }}
             """
             
-            response = model_gemini.generate_content([prompt, image])
+            # Use deep thinking model for comprehensive forensic analysis
+            response = model_gemini_deep.generate_content([prompt, image])
             text = AIService._clean_json_text(response.text)
             print(f"DEBUG: Analysis Response: {text}")
             return json.loads(text)
@@ -226,6 +258,8 @@ class AIService:
         except Exception as e:
             print(f"Gemini Analysis Error: {e}")
             return {
+                "product_name": "Analysis Failed",
+                "condition_assessment": f"Error: {str(e)[:50]}...",
                 "sustainability_score": {"grade": "N/A"},
                 "economics": {"payback_period_months": 0}
             }

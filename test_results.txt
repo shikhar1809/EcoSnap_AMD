@@ -1,0 +1,26 @@
+﻿python : Traceback (most recent call last):
+At line:1 char:1
++ python test_all_journeys.py 2>&1 | Out-File -FilePath 
+test_results.tx ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback ( 
+   most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\royal\Desktop\Resources\Projects\EcoSnap
+\test_all_journeys.py", line 206, in <module>
+    main()
+  File "C:\Users\royal\Desktop\Resources\Projects\EcoSnap
+\test_all_journeys.py", line 168, in main
+    print("\U0001f680 EcoSnap Comprehensive Journey 
+Testing")
+  File "C:\Program Files\WindowsApps\PythonSoftwareFounda
+tion.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\encod
+ings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encodi
+ng_table)[0]
+           
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode 
+character '\U0001f680' in position 0: character maps to 
+<undefined>

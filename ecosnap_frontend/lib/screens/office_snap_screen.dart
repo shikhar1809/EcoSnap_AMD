@@ -11,6 +11,13 @@ class OfficeSnapScreen extends StatelessWidget {
         title: const Text("Office Snap (Corporate)", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home, color: Colors.white),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            tooltip: "Back to Home",
+          ),
+        ],
       ),
       body: Center(
         child: Column(

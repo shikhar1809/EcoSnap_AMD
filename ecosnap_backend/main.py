@@ -21,11 +21,12 @@ app.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(gamification.router, prefix="/gamification", tags=["gamification"])
 
-from app.api.routes import community, subsidies, predictive, carbon
+from app.api.routes import community, subsidies, predictive, carbon, green_tech
 app.include_router(community.router, prefix="/community", tags=["community"])
 app.include_router(subsidies.router, prefix="/subsidies", tags=["subsidies"])
 app.include_router(predictive.router, prefix="/predictive", tags=["predictive"])
 app.include_router(carbon.router, prefix="/carbon", tags=["carbon"])
+app.include_router(green_tech.router, prefix="/green-tech", tags=["green-tech"])
 
 @app.get("/")
 async def root():

@@ -17,9 +17,7 @@ class _CarbonScreenState extends State<CarbonScreen> {
   bool isLoading = true;
   final String userId = "test_user_id";
   
-  // Bill Buster
-  bool isScanningBill = false;
-  Map<String, dynamic>? billData;
+  // No longer using Bill-Buster
 
   @override
   void initState() {
@@ -49,32 +47,6 @@ class _CarbonScreenState extends State<CarbonScreen> {
     }
   }
 
-  Future<void> _scanBill() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (image == null) return;
-
-    setState(() => isScanningBill = true);
-
-    try {
-      var request = http.MultipartRequest('POST', Uri.parse('http://localhost:8000/carbon/analyze_bill'));
-      request.files.add(await http.MultipartFile.fromPath('file', image.path));
-      
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        setState(() {
-          billData = json.decode(response.body);
-        });
-      }
-    } catch (e) {
-      print("Bill Scan Error: $e");
-    } finally {
-      if (mounted) setState(() => isScanningBill = false);
-    }
-  }
 
   Future<void> trade(String action, double amount) async {
     final body = {"user_id": userId, "amount": amount, "action": action};
@@ -102,6 +74,13 @@ class _CarbonScreenState extends State<CarbonScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home, color: Colors.white),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            tooltip: "Back to Home",
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -110,51 +89,6 @@ class _CarbonScreenState extends State<CarbonScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // --- BILL BUSTER SECTION ---
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [Colors.orange.shade900, Colors.deepOrange.shade800]),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 10)]
-                    ),
-                    child: Column(
-                      children: [
-                        const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(Icons.bolt, color: Colors.yellowAccent, size: 28),
-                          SizedBox(width: 10),
-                          Text("Bill-Buster AI", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))
-                        ]),
-                        const SizedBox(height: 10),
-                        const Text("Upload your electricity bill to find hidden savings.", 
-                          style: TextStyle(color: Colors.white70, fontSize: 12), textAlign: TextAlign.center),
-                        const SizedBox(height: 20),
-                        
-                        if (isScanningBill)
-                          const CircularProgressIndicator(color: Colors.white)
-                        else if (billData == null)
-                          ElevatedButton.icon(
-                            onPressed: _scanBill,
-                            icon: const Icon(Icons.upload_file),
-                            label: const Text("Upload Bill & Scan"),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.deepOrange),
-                          )
-                        else ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(10)),
-                            child: Column(children: [
-                              Text("Bill Amount: ₹${billData!['total_amount']}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                              Text("Rate: ₹${billData!['extracted_rate']}/unit", style: const TextStyle(color: Colors.yellowAccent)),
-                            ]),
-                          ),
-                          const SizedBox(height: 10),
-                          Text("AI Recommendation: ${billData!['recommendation']}", 
-                            style: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
-                        ]
-                      ],
-                    ),
-                  ),
                   
                   const SizedBox(height: 30),
                   

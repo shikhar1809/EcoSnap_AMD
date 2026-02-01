@@ -6,10 +6,7 @@ import uuid
 
 router = APIRouter()
 
-# In-memory storage for MVP (since we can't easily create tables)
-# In a real app, this would be Supabase tables: questions, answers
-questions_db = []
-answers_db = []
+from app.database import supabase
 
 class QuestionCreate(BaseModel):
     user_id: str
@@ -25,69 +22,82 @@ class AnswerCreate(BaseModel):
     question_id: str
     content: str
 
-class Question(QuestionCreate):
-    id: str
-    created_at: str
-    upvotes: int = 0
-    answer_count: int = 0
+# Supabase handles ID and CreatedAt automatically via defaults, 
+# but models can still reflect them for response validation if needed.
 
-class Answer(AnswerCreate):
-    id: str
-    created_at: str
-    upvotes: int = 0
-    is_expert: bool = False
-
-@router.post("/questions", response_model=Question)
+@router.post("/questions")
 async def ask_question(q: QuestionCreate):
-    new_q = Question(
-        **q.dict(),
-        id=str(uuid.uuid4()),
-        created_at=datetime.now().isoformat()
-    )
-    questions_db.append(new_q)
-    return new_q
+    try:
+        data = q.dict()
+        response = supabase.table("questions").insert(data).execute()
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to create question")
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/questions", response_model=List[Question])
+@router.get("/questions")
 async def list_questions(category: Optional[str] = None, city: Optional[str] = None):
-    results = questions_db
-    if category:
-        results = [q for q in results if q.category == category]
-    if city:
-        results = [q for q in results if q.city == city]
-    return sorted(results, key=lambda x: x.created_at, reverse=True)
+    try:
+        query = supabase.table("questions").select("*").order("created_at", desc=True)
+        if category:
+            query = query.eq("category", category)
+        if city:
+            query = query.eq("city", city)
+            
+        response = query.execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/answers", response_model=Answer)
+@router.post("/answers")
 async def answer_question(a: AnswerCreate):
-    # Check if question exists
-    q_exists = next((q for q in questions_db if q.id == a.question_id), None)
-    if not q_exists:
-        raise HTTPException(status_code=404, detail="Question not found")
-    
-    new_a = Answer(
-        **a.dict(),
-        id=str(uuid.uuid4()),
-        created_at=datetime.now().isoformat()
-    )
-    answers_db.append(new_a)
-    
-    # Update answer count
-    q_exists.answer_count += 1
-    
-    return new_a
+    try:
+        # Check if question exists first? Not strictly necessary with FK constraints, 
+        # but good for error messaging. Supabase will throw error if FK fails.
+        
+        data = a.dict()
+        response = supabase.table("answers").insert(data).execute()
+        
+        # Increment answer count on question (Manual denormalization update)
+        # Ideally this is a trigger or RPC, but we do it client-side for MVP
+        try:
+            # Get current count
+            q_res = supabase.table("questions").select("answer_count").eq("id", a.question_id).execute()
+            if q_res.data:
+                current_count = q_res.data[0]['answer_count']
+                supabase.table("questions").update({"answer_count": current_count + 1}).eq("id", a.question_id).execute()
+        except:
+            pass # Non-critical
+            
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/questions/{question_id}/answers", response_model=List[Answer])
+@router.get("/questions/{question_id}/answers")
 async def get_answers(question_id: str):
-    return [a for a in answers_db if a.question_id == question_id]
+    try:
+        response = supabase.table("answers").select("*").eq("question_id", question_id).order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/vote")
 async def vote(item_id: str, item_type: str = "question"): # item_type: question or answer
-    if item_type == "question":
-        item = next((q for q in questions_db if q.id == item_id), None)
-    else:
-        item = next((a for a in answers_db if a.id == item_id), None)
+    try:
+        table = "questions" if item_type == "question" else "answers"
         
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+        # Simple increment via read-modify-write (Not atomic, but fine for MVP)
+        # Better: Use a Postgres Function (RPC) 'increment_vote'
         
-    item.upvotes += 1
-    return {"message": "Upvoted", "new_count": item.upvotes}
+        res = supabase.table(table).select("upvotes").eq("id", item_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Item not found")
+            
+        current_votes = res.data[0]['upvotes']
+        new_votes = current_votes + 1
+        
+        update_res = supabase.table(table).update({"upvotes": new_votes}).eq("id", item_id).execute()
+        return {"message": "Upvoted", "new_count": new_votes}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

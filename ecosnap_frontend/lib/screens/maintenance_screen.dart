@@ -65,6 +65,13 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            tooltip: "Back to Home",
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

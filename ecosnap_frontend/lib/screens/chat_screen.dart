@@ -59,6 +59,13 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text("Green Advisor", style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF1A1A1A),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home, color: Colors.white),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            tooltip: "Back to Home",
+          ),
+        ],
       ),
       backgroundColor: const Color(0xFF1A1A1A),
       body: Column(

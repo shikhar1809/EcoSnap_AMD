@@ -69,11 +69,12 @@ class ApiService {
     }
   }
 
-  Future<void> rewardUser(String userId, String action) async {
+  Future<void> rewardUser(String userId, String action, {double carbonKg = 0.0}) async {
     try {
       await _dio.post('/gamification/reward', data: {
         'user_id': userId,
         'action': action,
+        'carbon_kg': carbonKg
       });
     } catch (e) {
       print('Reward error: $e');
@@ -95,6 +96,41 @@ class ApiService {
       return response.data;
     } catch (e) {
       return {};
+    }
+  }
+
+  Future<List<dynamic>> getMarketplaceItems() async {
+    try {
+      final response = await _dio.get('/gamification/marketplace');
+      return response.data as List<dynamic>;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> redeemItem(String userId, String itemId) async {
+    try {
+      final response = await _dio.post('/gamification/redeem', data: {
+        'user_id': userId,
+        'item_id': itemId,
+      });
+      return response.data;
+    } catch (e) {
+      if (e is DioException && e.response != null) {
+        throw e.response!.data['detail'] ?? "Redemption failed";
+      }
+      throw e.toString();
+    }
+  }
+
+  Future<Map<String, dynamic>> analyzeBill(String base64Image) async {
+    try {
+      final response = await _dio.post('/carbon/analyze_bill', data: {
+        'image': base64Image,
+      });
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
     }
   }
 }

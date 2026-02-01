@@ -26,11 +26,38 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    final users = await _apiService.getLeaderboard();
+    // Use real API call but merge with robust demo data for visual impact
+    final apiUsers = await _apiService.getLeaderboard();
+
+    final List<dynamic> globalDemo = [
+      {"name": "Arjun Sharma", "city": "Delhi", "points": 8450, "streak_days": 15},
+      {"name": "Pranav Kumar", "city": "Bangalore", "points": 7200, "streak_days": 12},
+      {"name": "Ananya Roy", "city": "Kolkata", "points": 6850, "streak_days": 9},
+      {"name": "Ishaan Verma", "city": "Mumbai", "points": 6120, "streak_days": 7},
+      {"name": "Sanya Gupta", "city": "Chennai", "points": 5900, "streak_days": 5},
+      {"name": "Rohan Das", "city": "Pune", "points": 5400, "streak_days": 4},
+      {"name": "Meera Iyer", "city": "Hyderabad", "points": 4900, "streak_days": 10},
+      {"name": "Kabir Singh", "city": "Chandigarh", "points": 4600, "streak_days": 3},
+      {"name": "Diya Malhotra", "city": "Jaipur", "points": 4200, "streak_days": 8},
+      {"name": "Aarav Patel", "city": "Ahmedabad", "points": 3800, "streak_days": 2},
+    ];
+
+    final List<dynamic> neighborhoodDemo = [
+      {"name": "Amit (Flat 402)", "city": "Local", "points": 2450, "streak_days": 5},
+      {"name": "Sneha (Green Villa)", "city": "Local", "points": 2100, "streak_days": 8},
+      {"name": "Vikram (Eco Resid.)", "city": "Local", "points": 1850, "streak_days": 3},
+      {"name": "Rahul (B-304)", "city": "Local", "points": 1620, "streak_days": 7},
+      {"name": "Zoya (Sunshine Apts)", "city": "Local", "points": 1400, "streak_days": 2},
+    ];
 
     if (mounted) {
       setState(() {
-        _users = users;
+        _users = _isNeighborhood ? neighborhoodDemo : globalDemo;
+        if (apiUsers.isNotEmpty) {
+           // Merge or prefer API users if available
+           _users = [..._users, ...apiUsers];
+           _users.sort((a, b) => (b['points'] as int).compareTo(a['points'] as int));
+        }
         _userPincode = prefs.getString('user_pincode') ?? "400050";
         _userCity = prefs.getString('user_city') ?? "Mumbai";
         _isLoading = false;
@@ -46,6 +73,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1A1A1A),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home, color: Colors.white),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            tooltip: "Back to Home",
+          ),
+        ],
       ),
       backgroundColor: const Color(0xFF1A1A1A),
       body: _isLoading

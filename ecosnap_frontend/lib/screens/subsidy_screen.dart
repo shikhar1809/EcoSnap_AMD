@@ -96,6 +96,13 @@ class _SubsidyScreenState extends State<SubsidyScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            tooltip: "Back to Home",
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -44,11 +44,21 @@ class _VerificationDialogState extends State<VerificationDialog> {
     return AlertDialog(
       backgroundColor: Colors.grey.shade900,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Row(children: [
-        const Icon(Icons.verified_user, color: Colors.blueAccent),
-        const SizedBox(width: 10),
-        const Text("Smart Triage", style: TextStyle(color: Colors.white))
-      ]),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(children: [
+            const Icon(Icons.verified_user, color: Colors.blueAccent),
+            const SizedBox(width: 10),
+            const Text("Smart Triage", style: TextStyle(color: Colors.white, fontSize: 18))
+          ]),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white38),
+            onPressed: () => Navigator.pop(context),
+            tooltip: "Close",
+          )
+        ],
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -24,6 +24,12 @@ async def analyze_context(
     
     # Generate Questions
     result = AIService.generate_questions(contents, detected_objects, user_note)
+    
+    # Detect journey type for frontend routing
+    from app.utils.journey_detector import detect_journey_from_gemini_response
+    journey_type = detect_journey_from_gemini_response(str(detected_objects), user_note or "")
+    result['journey_type'] = journey_type
+    
     return result
 
 @router.post("/analyze")
@@ -51,6 +57,11 @@ async def analyze_room(
     # 2. Analyze with Gemini + User Context
     analysis_result = AIService.analyze_with_gemini(contents, detected_objects, responses_dict)
     
+    # 2.5 Detect Journey Type
+    from app.utils.journey_detector import detect_journey_from_gemini_response
+    gemini_description = analysis_result.get('product_name', '') + " " + analysis_result.get('condition_assessment', '')
+    journey_type = detect_journey_from_gemini_response(gemini_description, str(detected_objects))
+    
     # 3. Depth Map
     from app.services.depth_service import DepthService
     depth_map_base64 = DepthService.generate_depth_map(contents)
@@ -58,6 +69,7 @@ async def analyze_room(
     response = {
         "room_id": file.filename,
         "message": "Analysis Complete",
+        "journey_type": journey_type,  # Add journey type
         "detected_objects": detected_objects,
         "depth_map": depth_map_base64,
     }
