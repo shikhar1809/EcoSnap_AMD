@@ -123,6 +123,150 @@ class ApiService {
     }
   }
 
+  // ==================== CCTS 2023 CARBON CREDITS ====================
+
+  Future<Map<String, dynamic>> calculateCompliance(String sector, double emissions, double production) async {
+    try {
+      final response = await _dio.post('/carbon/ccts/calculate', data: {
+        'sector': sector,
+        'emissions_tco2': emissions,
+        'production_tonnes': production
+      });
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getCarbonWallet(String userId) async {
+    try {
+      final response = await _dio.get('/carbon/wallet/$userId');
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getOffsetProjects(String userId) async {
+    try {
+      final response = await _dio.get('/carbon/offset/projects/$userId');
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> calculateOffset(String userId, String type, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/carbon/offset/calculate', data: {
+        'user_id': userId,
+        'project_type': type,
+        'project_data': data
+      });
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMarketPrice() async {
+    try {
+      final response = await _dio.get('/carbon/ccts/market/price');
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  // ==================== SUBSIDIES ====================
+
+  Future<Map<String, dynamic>> recommendSubsidies(String state, String action, {double? capacityKw}) async {
+    try {
+      final response = await _dio.post('/subsidies/recommend', data: {
+        'state': state,
+        'action': action,
+        'capacity_kw': capacityKw
+      });
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getSubsidyCoverage() async {
+    try {
+      final response = await _dio.get('/subsidies/coverage');
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getDemoSolarCalculation(String state, double capacityKw) async {
+    try {
+      final response = await _dio.get('/subsidies/demo/solar-calculation', queryParameters: {
+        'state': state,
+        'capacity_kw': capacityKw
+      });
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  // ==================== COMMUNITY ====================
+
+  Future<Map<String, dynamic>> getCommunityFeed(String city) async {
+    try {
+      final response = await _dio.get('/community/feed', queryParameters: {'city': city});
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getCommunityLeaderboard(String city) async {
+    try {
+      final response = await _dio.get('/community/leaderboard', queryParameters: {'city': city});
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getCommunityInsights(String city) async {
+    try {
+      final response = await _dio.get('/community/insights/$city');
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  // ==================== MARKETPLACE ====================
+
+  Future<Map<String, dynamic>> getMarketplaceProducts({String? category}) async {
+    try {
+      final response = await _dio.get('/marketplace/products', queryParameters: 
+        category != null ? {'category': category} : {}
+      );
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getDemoSolarSystem(double capacityKw) async {
+    try {
+      final response = await _dio.get('/marketplace/demo/solar-system', queryParameters: {
+        'capacity_kw': capacityKw
+      });
+      return response.data;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> analyzeBill(String base64Image) async {
     try {
       final response = await _dio.post('/carbon/analyze_bill', data: {

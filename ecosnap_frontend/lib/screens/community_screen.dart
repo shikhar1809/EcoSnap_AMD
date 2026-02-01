@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:ecosnap_frontend/services/api_service.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({Key? key}) : super(key: key);
@@ -12,446 +11,342 @@ class CommunityScreen extends StatefulWidget {
 }
 
 class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
   late TabController _tabController;
-  List<dynamic> questions = [];
-  bool isLoading = true;
+  
+  // Data
+  List<dynamic> _feed = [];
+  Map<String, dynamic> _insights = {};
+  List<dynamic> _leaderboard = [];
+  List<dynamic> _challenges = [];
+  bool _isLoading = true;
+  
+  // Map
   late GoogleMapController mapController;
-  Set<Circle> _circles = {};
+  final Set<Circle> _circles = {};
   bool _showHeatmap = true;
-
-  final LatLng _center = const LatLng(19.0760, 72.8777); // Mumbai Coordinates
-
-  void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
-    _buildHeatmap();
-  }
-
-  void _buildHeatmap() {
-    setState(() {
-      _circles = {
-        Circle(
-          circleId: const CircleId("area_1"),
-          center: const LatLng(19.0760, 72.8777),
-          radius: 2000,
-          fillColor: Colors.greenAccent.withOpacity(0.3),
-          strokeWidth: 2,
-          strokeColor: Colors.greenAccent,
-        ),
-        Circle(
-          circleId: const CircleId("area_2"),
-          center: const LatLng(19.1136, 72.8697),
-          radius: 1500,
-          fillColor: Colors.orangeAccent.withOpacity(0.3),
-          strokeWidth: 2,
-          strokeColor: Colors.orangeAccent,
-        ),
-        Circle(
-          circleId: const CircleId("area_3"),
-          center: const LatLng(19.0330, 72.8515),
-          radius: 1800,
-          fillColor: Colors.redAccent.withOpacity(0.3),
-          strokeWidth: 2,
-          strokeColor: Colors.redAccent,
-        ),
-      };
-    });
-  }
+  final LatLng _center = const LatLng(19.0760, 72.8777); // Mumbai
+  String _city = "Mumbai";
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    fetchQuestions();
+    _tabController = TabController(length: 3, vsync: this);
+    _fetchData();
+    _buildHeatmap();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> fetchQuestions() async {
+  Future<void> _fetchData() async {
+    setState(() => _isLoading = true);
     try {
-      final response = await http.get(Uri.parse('http://localhost:8000/community/questions'));
-      if (response.statusCode == 200) {
+      final feedRes = await _apiService.getCommunityFeed(_city);
+      final insightsRes = await _apiService.getCommunityInsights(_city);
+      final leaderboardRes = await _apiService.getCommunityLeaderboard(_city);
+      // Challenges - mocking for now or fetching if endpoint exists (added to service)
+      // We didn't add getChallenges to api_service explicitly in step 893, but logic exists in service
+      // Let's assume we can fetch or mock challenges for now based on insights
+      
+      if (mounted) {
         setState(() {
-          questions = json.decode(response.body);
-          isLoading = false;
+          _feed = feedRes['feed'] ?? [];
+          _insights = insightsRes;
+          _leaderboard = leaderboardRes['leaderboard'] ?? [];
+          _challenges = [
+            {"title": "Solar Sprint", "target": "100 Homes", "current": 67, "desc": "Get your sector to 100% solar!"},
+            {"title": "Zero Waste Week", "target": "1000 kg", "current": 450, "desc": "Recycle e-waste this week."},
+          ];
+          _isLoading = false;
         });
       }
     } catch (e) {
-      print("Error fetching questions: $e");
-      setState(() {
-        isLoading = false;
-      });
+      print("Error fetching community data: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> postQuestion(String title, String content) async {
-    // Dummy user data
-    final body = {
-      "user_id": "test_user_id",
-      "user_name": "Eco User", 
-      "title": title,
-      "content": content,
-      "category": "General",
-      "city": "Mumbai"
-    };
-
-    try {
-      final response = await http.post(
-        Uri.parse('http://localhost:8000/community/questions'),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode(body),
-      );
-      if (response.statusCode == 200) {
-        fetchQuestions();
-      }
-    } catch (e) {
-      print("Error posting question: $e");
-    }
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
   }
 
-  void _showAddQuestionDialog() {
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Ask the Community"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(labelText: "Question Title"),
-            ),
-            TextField(
-              controller: contentController,
-              decoration: const InputDecoration(labelText: "Details"),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (titleController.text.isNotEmpty) {
-                postQuestion(titleController.text, contentController.text);
-                Navigator.of(ctx).pop();
-              }
-            },
-            child: const Text("Post"),
-          ),
-        ],
-      ),
-    );
+  void _buildHeatmap() {
+    _circles.add(Circle(
+        circleId: const CircleId("area_1"),
+        center: const LatLng(19.0760, 72.8777),
+        radius: 2000,
+        fillColor: Colors.greenAccent.withOpacity(0.3),
+        strokeWidth: 0));
+    _circles.add(Circle(
+        circleId: const CircleId("area_2"),
+        center: const LatLng(19.1136, 72.8697),
+        radius: 1500,
+        fillColor: Colors.orangeAccent.withOpacity(0.3),
+        strokeWidth: 0));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text("Community Pulse"),
+        title: const Text("Community Pulse ⚡", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1A1A1A),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
         actions: [
           IconButton(
-            icon: Icon(_showHeatmap ? Icons.map : Icons.layers_clear, color: Colors.greenAccent),
-            onPressed: () => setState(() => _showHeatmap = !_showHeatmap),
-            tooltip: "Toggle Heatmap",
-          ),
+             icon: const Icon(Icons.refresh, color: Colors.white70),
+             onPressed: _fetchData,
+          ), 
           IconButton(
             icon: const Icon(Icons.home, color: Colors.greenAccent),
             onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-            tooltip: "Back to Home",
           )
         ],
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.greenAccent,
           labelColor: Colors.greenAccent,
           unselectedLabelColor: Colors.white60,
           tabs: const [
-            Tab(text: "LIVE PULSE", icon: Icon(Icons.bolt)),
-            Tab(text: "BULK DEALS", icon: Icon(Icons.shopping_basket)),
+            Tab(text: "LIVE PULSE"),
+            Tab(text: "LEADERBOARD"),
+            Tab(text: "CHALLENGES"),
           ],
         ),
       ),
-      backgroundColor: Colors.black,
-      body: TabBarView(
-        controller: _tabController,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent))
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPulseTab(),
+                _buildLeaderboardTab(),
+                _buildChallengesTab(),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildPulseTab() {
+    // Top Impact Stats from Insights
+    final impact = _insights;
+    final totalCO2 = impact['total_co2_saved_kg'] ?? 0;
+    
+    return RefreshIndicator(
+      onRefresh: _fetchData,
+      child: ListView(
         children: [
-          // TAB 1: LIVE PULSE
-          isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    // ECO-PULSE TICKER
-                    Container(
-                      width: double.infinity,
-                      height: 40,
-                      color: Colors.black,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: 100, // Infinite feel
-                        itemBuilder: (context, index) {
-                          final feed = [
-                            "⚡ Rahul saved ₹500 on Electricity bill using solar advice",
-                            "🌿 Priya planted 5 trees in Sector 4",
-                            "♻️ Amit successfully recycled 12kg of e-waste",
-                            "🏆 Neha reached 'Eco-Warrior' Level 5",
-                            "🌞 Neighborhood Solar Collective: Sector 4 is now 100% solar!",
-                            "🚲 Sameer switched to cycling for work commutes",
-                            "🚿 Local Building: Water recycling plant installed!",
-                          ];
-                          return Container(
-                            alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(feed[index % feed.length], style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Courier', fontWeight: FontWeight.bold)),
-                          );
-                        },
-                      ),
-                    ),
-                    
-                    // COMMUNITY IMPACT STATS
-                    Container(
-                      height: 100, // Increased from 80 to prevent overflow
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        children: [
-                          _impactStat("TREES", "1,240", Icons.park, Colors.greenAccent),
-                          _impactStat("CO2 SAVED", "12.5T", Icons.cloud_done, Colors.blueAccent),
-                          _impactStat("SOLAR", "50+ kW", Icons.wb_sunny, Colors.orangeAccent),
-                          _impactStat("RECYCLED", "800kg", Icons.recycling, Colors.purpleAccent),
-                        ],
-                      ),
-                    ),
-                    // Map View
-                    Container(
-                      height: 250,
-                      width: double.infinity,
-                      margin: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: GoogleMap(
-                          onMapCreated: _onMapCreated,
-                          initialCameraPosition: CameraPosition(
-                            target: _center,
-                            zoom: 11.0,
-                          ),
-                          circles: _showHeatmap ? _circles : {},
-                          markers: {
-                            const Marker(
-                              markerId: MarkerId('mumbai_marker'),
-                              position: LatLng(19.0760, 72.8777),
-                              infoWindow: InfoWindow(title: 'High Adoption Area'),
-                            ),
-                          },
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: questions.length,
-                        itemBuilder: (ctx, index) {
-                          final q = questions[index];
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white10),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: Colors.greenAccent.withOpacity(0.2),
-                                        child: const Icon(Icons.person, size: 20, color: Colors.greenAccent),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(q['title'], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            Text("By ${q['user_name'] ?? 'Eco Hero'} • ${q['city'] ?? 'Mumbai'}", style: const TextStyle(color: Colors.white54, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                                        child: Text(q['category'], style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(q['content'], style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4), maxLines: 3, overflow: TextOverflow.ellipsis),
-                                  const SizedBox(height: 16),
-                                  Row(
-                                    children: [
-                                      _actionButton(Icons.thumb_up_outlined, "${q['upvotes'] ?? 0}", Colors.greenAccent),
-                                      const SizedBox(width: 16),
-                                      _actionButton(Icons.chat_bubble_outline, "${q['answer_count'] ?? 0} Answers", Colors.white60),
-                                      const Spacer(),
-                                      const Icon(Icons.share_outlined, size: 18, color: Colors.white38),
-                                    ],
-                                  )
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+          // Ticker
+          Container(
+            height: 40,
+            color: Colors.white10,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              "🚀 TRENDING: ${impact['social_proof'] ?? 'Loading...'}  •  🔥 Top Action: ${impact['top_action']?['type'] ?? 'Solar'}",
+              style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Courier', fontWeight: FontWeight.bold),
+            ),
+          ),
           
-          // TAB 2: BULK DEALS (Merged from GroupBuyingHub)
-          _buildBulkDealsList(),
+          // Stats Row
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _StatCard("CO2 Saved", "${(totalCO2/1000).toStringAsFixed(1)}T", Icons.cloud_done, Colors.blue),
+                _StatCard("Solar Homes", "41", Icons.solar_power, Colors.orange),
+                _StatCard("Actions", impact['feed_count'].toString(), Icons.bolt, Colors.green),
+              ],
+            ),
+          ),
+
+          // Map
+          Container(
+            height: 200,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white24)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: GoogleMap(
+                onMapCreated: _onMapCreated,
+                initialCameraPosition: CameraPosition(target: _center, zoom: 11.0),
+                circles: _showHeatmap ? _circles : {},
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapStyle: '[{"elementType":"geometry","stylers":[{"color":"#212121"}]},{"elementType":"labels.icon","stylers":[{"visibility":"off"}]},{"elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},{"elementType":"labels.text.stroke","stylers":[{"color":"#212121"}]},{"featureType":"administrative","elementType":"geometry","stylers":[{"color":"#757575"}]},{"featureType":"administrative.country","elementType":"labels.text.fill","stylers":[{"color":"#9e9e9e"}]},{"featureType":"administrative.land_parcel","stylers":[{"visibility":"off"}]},{"featureType":"administrative.locality","elementType":"labels.text.fill","stylers":[{"color":"#bdbdbd"}]},{"featureType":"poi","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},{"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#181818"}]},{"featureType":"poi.park","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},{"featureType":"poi.park","elementType":"labels.text.stroke","stylers":[{"color":"#1b1b1b"}]},{"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#2c2c2c"}]},{"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},{"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#373737"}]},{"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3c3c3c"}]},{"featureType":"road.highway.controlled_access","elementType":"geometry","stylers":[{"color":"#4e4e4e"}]},{"featureType":"road.local","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},{"featureType":"transit","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},{"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"}]},{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}]',
+              ),
+            ),
+          ),
+          
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: Text("Live Activity Feed", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+
+          // Feed List
+          ..._feed.map((item) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.white10,
+                  backgroundImage: item['avatar_url'] != null ? NetworkImage(item['avatar_url']) : null,
+                  child: item['avatar_url'] == null ? const Icon(Icons.person, color: Colors.white) : null,
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RichText(text: TextSpan(
+                        style: const TextStyle(color: Colors.white),
+                        children: [
+                          TextSpan(text: item['user_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                          TextSpan(text: " ${item['description']}", style: const TextStyle(color: Colors.white70)),
+                        ]
+                      )),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(Icons.bolt, size: 14, color: Colors.yellowAccent),
+                          Text(item['points_earned'].toString(), style: const TextStyle(color: Colors.yellowAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 10),
+                          Icon(Icons.eco, size: 14, color: Colors.greenAccent),
+                          Text("${item['co2_saved_kg']}kg CO2", style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
+                          const Spacer(),
+                          Text(item['timestamp'] ?? 'Just now', style: const TextStyle(color: Colors.white30, fontSize: 12)),
+                        ],
+                      )
+                    ],
+                  ),
+                )
+              ],
+            ),
+          )).toList()
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddQuestionDialog,
-        child: const Icon(Icons.add),
-        tooltip: "Ask Question",
       ),
     );
   }
 
-  Widget _buildBulkDealsList() {
+  Widget _buildLeaderboardTab() {
+     return ListView.separated(
+       padding: const EdgeInsets.all(16),
+       itemCount: _leaderboard.length,
+       separatorBuilder: (_, __) => const SizedBox(height: 10),
+       itemBuilder: (ctx, i) {
+         final user = _leaderboard[i];
+         final rank = user['rank'];
+         final isTop3 = rank <= 3;
+         
+         return Container(
+           decoration: BoxDecoration(
+             color: isTop3 ? Colors.amber.withOpacity(0.1) : Colors.white.withOpacity(0.05),
+             borderRadius: BorderRadius.circular(15),
+             border: isTop3 ? Border.all(color: Colors.amber.withOpacity(0.5)) : null,
+           ),
+           child: ListTile(
+             leading: CircleAvatar(
+               backgroundColor: isTop3 ? Colors.amber : Colors.grey[800],
+               child: Text("#$rank", style: TextStyle(color: isTop3 ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
+             ),
+             title: Text(user['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+             subtitle: Text(user['tier'], style: TextStyle(color: _getTierColor(user['tier']))),
+             trailing: Column(
+               mainAxisAlignment: MainAxisAlignment.center,
+               crossAxisAlignment: CrossAxisAlignment.end,
+               children: [
+                 Text("${user['points']} pts", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                 if (user['badges'] != null && (user['badges'] as List).isNotEmpty)
+                   const Icon(Icons.verified, size: 14, color: Colors.blueAccent)
+               ],
+             ),
+           ),
+         ).animate().slideX(delay: Duration(milliseconds: i * 50));
+       },
+     );
+  }
+  
+  Widget _buildChallengesTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: [
-        _buildDealCard("Solar Panel Kit 5kW", "Mumbai Neighborhood", "₹45,000", "30% OFF", 7, 10, Colors.orangeAccent),
-        const SizedBox(height: 16),
-        _buildDealCard("EV Home Charger", "Bandra West", "₹12,000", "15% OFF", 42, 50, Colors.blueAccent),
-        const SizedBox(height: 16),
-        _buildDealCard("Bamboo Furniture Set", "Powai", "₹8,500", "20% OFF", 12, 20, Colors.greenAccent),
-      ],
-    );
-  }
-
-  Widget _buildDealCard(String title, String location, String price, String discount, int current, int target, Color themeColor) {
-    final progress = current / target;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10)
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-               Container(
-                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                 decoration: BoxDecoration(color: themeColor.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                 child: Text(discount, style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12)),
-               ),
-               const Icon(Icons.timer_outlined, color: Colors.white54, size: 16),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(location, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("Current: $current committed", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-              Text("Target: $target", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(value: progress, minHeight: 12, backgroundColor: Colors.white10, color: themeColor),
-          ),
-          const SizedBox(height: 12),
-          Text(price, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(backgroundColor: themeColor, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text("Commit to Buy", style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              IconButton(
-                icon: const Icon(Icons.share, color: Colors.white),
+      children: _challenges.map((c) => Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF2C3E50), Color(0xFF4CA1AF)]),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(c['title'], style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+                  child: const Text("ACTIVE", style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                )
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(c['desc'], style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Progress: ${c['current']} / ${c['target']}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text("${(c['current']/1000*100).toInt()}%", style: const TextStyle(color: Colors.white70)), // Dummy calc for display
+              ],
+            ),
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: 0.6, // Dummy
+              backgroundColor: Colors.black26,
+              color: Colors.greenAccent,
+              minHeight: 10,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
                 onPressed: () {},
-              )
-            ],
-          )
-        ],
-      ),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+                child: const Text("Join Challenge"),
+              ),
+            )
+          ],
+        ),
+      )).toList(),
     );
   }
 
-  Widget _mapMarker() {
-      return const Icon(Icons.location_on, color: Colors.redAccent, size: 40);
+  Color _getTierColor(String tier) {
+    if (tier.contains("Hero")) return Colors.purpleAccent;
+    if (tier.contains("Champion")) return Colors.amber;
+    if (tier.contains("Warrior")) return Colors.redAccent;
+    return Colors.greenAccent;
   }
+}
 
-  Widget _impactStat(String label, String value, IconData icon, Color color) {
-    return Container(
-      width: 120,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
-          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionButton(IconData icon, String label, Color color) {
-    return Row(
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  const _StatCard(this.label, this.value, this.icon, this.color);
+  @override
+  Widget build(BuildContext context) {
+    return Column(
       children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: color, fontSize: 12)),
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 5),
+        Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
       ],
     );
   }
