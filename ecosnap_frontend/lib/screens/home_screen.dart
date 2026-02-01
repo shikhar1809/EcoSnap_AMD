@@ -1476,7 +1476,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _minimalFeature(context, "Community", Icons.public, Colors.lightBlueAccent, CommunityScreen()),
                     const SizedBox(width: 16),
-                    _minimalFeature(context, "Subsidy", Icons.verified, const Color(0xFFE7C6FF), AadhaarVerificationScreen()),
+                    _minimalFeature(context, "Subsidy", Icons.verified, const Color(0xFFE7C6FF), const SubsidyScreen()),
                     const SizedBox(width: 16),
                     _minimalFeature(context, "Market", Icons.storefront, const Color(0xFFBBCDE5), MarketplaceScreen()),
                     const SizedBox(width: 16),
