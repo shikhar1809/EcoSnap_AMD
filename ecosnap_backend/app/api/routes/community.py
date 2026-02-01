@@ -2,9 +2,94 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
-import uuid
+
+from app.services.community_service import CommunityService, ActionType
 
 router = APIRouter()
+
+# ==================== MODELS ====================
+
+class PostActionRequest(BaseModel):
+    user_id: str
+    user_name: str
+    action: ActionType
+    city: str
+
+# ==================== ENHANCED COMMUNITY ENDPOINTS ====================
+
+@router.get("/leaderboard")
+async def get_leaderboard(city: Optional[str] = None, limit: int = 10):
+    """
+    Get community leaderboard
+    Real-time rankings with points, tiers, and badges
+    """
+    leaderboard = CommunityService.get_leaderboard(city=city, limit=limit)
+    
+    return {
+        "leaderboard": leaderboard,
+        "total_users": len(leaderboard),
+        "city": city or "All Cities",
+        "last_updated": datetime.now().isoformat()
+    }
+
+@router.get("/feed")
+async def get_live_feed(city: Optional[str] = None, limit: int = 20):
+    """
+    Get live community feed
+    Real-time actions from users
+    """
+    feed = CommunityService.get_live_feed(city=city, limit=limit)
+    
+    return {
+        "feed": feed,
+        "total_actions": len(feed),
+        "city": city or "All Cities",
+        "last_updated": datetime.now().isoformat()
+    }
+
+@router.get("/insights/{city}")
+async def get_neighborhood_insights(city: str):
+    """
+    Get neighborhood insights and social proof
+    "41 homes in your area went solar"
+    """
+    insights = CommunityService.get_neighborhood_insights(city=city)
+    
+    return insights
+
+@router.post("/post")
+async def post_action(req: PostActionRequest):
+    """
+    Post a new action to the community feed
+    Earn points and update leaderboard
+    """
+    result = CommunityService.post_action(
+        user_id=req.user_id,
+        user_name=req.user_name,
+        action=req.action,
+        city=req.city
+    )
+    
+    return result
+
+@router.get("/user/{user_id}")
+async def get_user_stats(user_id: str):
+    """Get user statistics and achievements"""
+    stats = CommunityService.get_user_stats(user_id)
+    return stats
+
+@router.get("/challenges/{city}")
+async def get_challenges(city: str):
+    """Get active community challenges"""
+    challenges = CommunityService.get_challenges(city)
+    
+    return {
+        "challenges": challenges,
+        "total": len(challenges),
+        "city": city
+    }
+
+# ==================== LEGACY ENDPOINTS (Supabase Q&A) ====================
 
 from app.database import supabase
 
@@ -21,9 +106,6 @@ class AnswerCreate(BaseModel):
     user_name: str
     question_id: str
     content: str
-
-# Supabase handles ID and CreatedAt automatically via defaults, 
-# but models can still reflect them for response validation if needed.
 
 @router.post("/questions")
 async def ask_question(q: QuestionCreate):
@@ -53,22 +135,17 @@ async def list_questions(category: Optional[str] = None, city: Optional[str] = N
 @router.post("/answers")
 async def answer_question(a: AnswerCreate):
     try:
-        # Check if question exists first? Not strictly necessary with FK constraints, 
-        # but good for error messaging. Supabase will throw error if FK fails.
-        
         data = a.dict()
         response = supabase.table("answers").insert(data).execute()
         
-        # Increment answer count on question (Manual denormalization update)
-        # Ideally this is a trigger or RPC, but we do it client-side for MVP
+        # Increment answer count
         try:
-            # Get current count
             q_res = supabase.table("questions").select("answer_count").eq("id", a.question_id).execute()
             if q_res.data:
                 current_count = q_res.data[0]['answer_count']
                 supabase.table("questions").update({"answer_count": current_count + 1}).eq("id", a.question_id).execute()
         except:
-            pass # Non-critical
+            pass
             
         return response.data[0]
     except Exception as e:
@@ -83,12 +160,9 @@ async def get_answers(question_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/vote")
-async def vote(item_id: str, item_type: str = "question"): # item_type: question or answer
+async def vote(item_id: str, item_type: str = "question"):
     try:
         table = "questions" if item_type == "question" else "answers"
-        
-        # Simple increment via read-modify-write (Not atomic, but fine for MVP)
-        # Better: Use a Postgres Function (RPC) 'increment_vote'
         
         res = supabase.table(table).select("upvotes").eq("id", item_id).execute()
         if not res.data:
