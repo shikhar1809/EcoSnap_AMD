@@ -3,7 +3,8 @@ import 'package:ecosnap_frontend/services/api_service.dart';
 import 'package:intl/intl.dart';
 
 class SubsidyScreen extends StatefulWidget {
-  const SubsidyScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? initialData;
+  const SubsidyScreen({Key? key, this.initialData}) : super(key: key);
 
   @override
   _SubsidyScreenState createState() => _SubsidyScreenState();
@@ -38,6 +39,25 @@ class _SubsidyScreenState extends State<SubsidyScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    
+    // Auto-fill from AI data if present
+    if (widget.initialData != null) {
+      final journey = widget.initialData!['journey'];
+      if (journey == 'SOLAR_AUDIT') {
+        _recAction = 'solar';
+        final solar = widget.initialData!['solar_potential'] ?? {};
+        _capacityController.text = (solar['recommended_capacity_kw'] ?? 3).toString();
+      } else if (journey == 'ROOM_ENERGY') {
+        _recAction = 'energy_efficiency';
+      }
+      
+      // Auto-trigger recommendation if we have enough data
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _getRecommendations();
+        _tabController.animateTo(1); // Switch to eligibility tab
+      });
+    }
+    
     _fetchSchemes();
   }
 

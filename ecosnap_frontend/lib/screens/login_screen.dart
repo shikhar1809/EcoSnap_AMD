@@ -76,11 +76,7 @@ class LoginScreen extends StatelessWidget {
                     child: const Text('Get Started', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ).animate(delay: 800.ms).slideY(begin: 0.2, end: 0).fadeIn(),
                   
-                  const SizedBox(height: 20),
-                  TextButton(
-                    onPressed: () {},
-                    child: Text('Create Account', style: TextStyle(color: Colors.white.withOpacity(0.8))),
-                  ),
+
                 ],
               ),
             ),

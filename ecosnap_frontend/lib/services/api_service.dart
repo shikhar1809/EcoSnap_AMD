@@ -9,8 +9,8 @@ class ApiService {
   
   final Dio _dio = Dio(BaseOptions(
     baseUrl: baseUrl,
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
+    connectTimeout: const Duration(seconds: 180),
+    receiveTimeout: const Duration(seconds: 180),
   ));
 
   Future<String> getHealthStatus() async {
@@ -30,30 +30,80 @@ class ApiService {
         'scan_mode': scanMode,  // Pass quick/deep mode to backend
       });
       final response = await _dio.post('/analysis/analyze/context', data: formData);
-      return Map<String, dynamic>.from(response.data);
+      return _deepEnsureMap(response.data);
     } catch (e) {
       return {'error': e.toString()};
     }
   }
 
-  Future<Map<String, dynamic>> uploadImage(List<int> bytes, String filename, Map<String, dynamic> userResponses) async {
+  // Helper to recursively convert LinkedMap to Map<String, dynamic>
+  static Map<String, dynamic> _deepEnsureMap(dynamic input) {
+    if (input == null) return {};
+    
+    if (input is Map) {
+      final Map<String, dynamic> result = {};
+      input.forEach((key, value) {
+        if (value is Map) {
+          result[key.toString()] = _deepEnsureMap(value);
+        } else if (value is List) {
+          result[key.toString()] = value.map((e) {
+             if (e is Map) return _deepEnsureMap(e);
+             return e;
+          }).toList();
+        } else {
+          result[key.toString()] = value;
+        }
+      });
+      return result;
+    }
+    return {'error': 'Invalid input format'};
+  }
+
+  Future<Map<String, dynamic>> uploadImage(List<int> bytes, String filename, Map<String, dynamic> userResponses, {bool demoMode = false, double? latitude, double? longitude}) async {
     try {
-      // Serialize answers to JSON string
-      String responsesJson = "{}";
-      // Manually simple serialization or use jsonEncode if imported
-      // Assuming simple strings for now or import dart:convert
+      print('[API] Starting analysis upload...');
+      print('[API] Journey: ${userResponses['journey_id']}');
+      print('[API] Demo mode: $demoMode');
       
       final formData = FormData.fromMap({
         'files': MultipartFile.fromBytes(bytes, filename: filename),
-        'user_responses': jsonEncode(userResponses), 
+        'user_responses': jsonEncode(userResponses),
+        'demo_mode': demoMode ? 'true' : 'false',
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       });
+      
+      print('[API] Sending request to /analysis/analyze...');
       
       final response = await _dio.post(
         '/analysis/analyze', 
         data: formData,
+        onSendProgress: (sent, total) {
+          print('[API] Upload progress: ${(sent / total * 100).toStringAsFixed(0)}%');
+        },
       );
-      return Map<String, dynamic>.from(response.data);
+      
+      print('[API] Response received: ${response.statusCode}');
+      print('[API] Response data keys: ${response.data.keys}');
+      
+      if (response.statusCode == 200) {
+        final result = _deepEnsureMap(response.data);
+        print('[API] Analysis complete: ${result['journey']}');
+        return result;
+      } else {
+        print('[API] ERROR: Status ${response.statusCode}');
+        return {'error': 'Server returned status ${response.statusCode}'};
+      }
     } catch (e) {
+      print('[API] EXCEPTION: $e');
+      if (e is DioException) {
+        print('[API] DioException type: ${e.type}');
+        print('[API] DioException message: ${e.message}');
+        if (e.response != null) {
+          print('[API] Response status: ${e.response!.statusCode}');
+          print('[API] Response data: ${e.response!.data}');
+        }
+      }
       return {'error': e.toString()};
     }
   }

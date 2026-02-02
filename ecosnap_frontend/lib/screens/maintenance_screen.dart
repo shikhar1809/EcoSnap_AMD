@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart'; // Assuming fl_chart is added, if not I'll just use text/progress bars
 
 class MaintenanceScreen extends StatefulWidget {
-  const MaintenanceScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? initialData;
+  const MaintenanceScreen({Key? key, this.initialData}) : super(key: key);
 
   @override
   _MaintenanceScreenState createState() => _MaintenanceScreenState();

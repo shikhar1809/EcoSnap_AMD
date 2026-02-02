@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class TopPicksScreen extends StatelessWidget {
-  const TopPicksScreen({super.key});
+  final Map<String, dynamic>? initialData;
+  const TopPicksScreen({super.key, this.initialData});
 
   @override
   Widget build(BuildContext context) {

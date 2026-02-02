@@ -138,7 +138,7 @@ class _ScannerV2WidgetState extends State<ScannerV2Widget> with TickerProviderSt
     return Material(
       color: Colors.transparent,
       child: Container(
-        color: const Color(0xFF050505).withOpacity(0.97),
+        color: const Color(0xFF050505).withOpacity(0.85),
         child: Stack(
           fit: StackFit.expand,
           children: [

@@ -99,12 +99,16 @@ class _QuestionnaireDialogState extends State<QuestionnaireDialog> {
                     padding: const EdgeInsets.symmetric(vertical: 16)
                   ),
                   onPressed: () {
+                    print('[QUESTIONNAIRE] User clicked Run Analysis');
                     // Collect Text Answers
                     _controllers.forEach((id, controller) {
                       _answers[id] = controller.text;
                     });
-                    widget.onSubmit(_answers);
+                    print('[QUESTIONNAIRE] Collected answers: $_answers');
+                    // Close dialog FIRST, then trigger analysis
                     Navigator.pop(context);
+                    print('[QUESTIONNAIRE] Calling onSubmit callback...');
+                    widget.onSubmit(_answers);
                   },
                   child: const Text("Run Analysis", style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
@@ -116,7 +120,9 @@ class _QuestionnaireDialogState extends State<QuestionnaireDialog> {
     );
   }
 
-  Widget _buildQuestionField(Map<String, dynamic> q) {
+  Widget _buildQuestionField(dynamic input) {
+    // Safe cast to avoid LinkedMap subtype errors
+    final Map<String, dynamic> q = Map<String, dynamic>.from(input as Map);
     final type = q['type'] ?? 'text'; // Default to text
 
     return Padding(

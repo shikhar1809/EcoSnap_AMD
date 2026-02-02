@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     
     # AI Keys
     GEMINI_API_KEY: str
+    
+    # Google APIs for Enhanced Analysis
+    GOOGLE_SOLAR_API_KEY: str = ""  # Optional: Google Solar API
+    GOOGLE_MAPS_API_KEY: str = ""   # Optional: Google Maps/Geocoding
+    OPENWEATHER_API_KEY: str = ""   # Optional: Weather data
 
     model_config = {"env_file": ".env"}
 

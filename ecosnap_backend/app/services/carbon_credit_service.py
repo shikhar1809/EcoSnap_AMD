@@ -97,20 +97,21 @@ class CCTSEngine:
     
     @classmethod
     def get_current_ccc_price(cls) -> Dict:
-        """Get current CCC market price from CERC power exchanges"""
-        import random
-        
-        # Simulate market volatility
-        volatility_factor = 1 + random.uniform(-cls.CCC_PRICE_VOLATILITY, cls.CCC_PRICE_VOLATILITY)
-        current_price = cls.CCC_BASE_PRICE * volatility_factor
+        """
+        Get current CCC market price.
+        In a production environment, this would fetch from IEX (Indian Energy Exchange) API.
+        For now, we return the BEE baseline reference price to avoid 'fake' random fluctuations.
+        """
+        current_price = cls.CCC_BASE_PRICE 
         
         return {
             "price_per_tco2": round(current_price, 2),
             "currency": "INR",
             "exchange": "IEX (Indian Energy Exchange)",
             "timestamp": datetime.now().isoformat(),
-            "24h_change": round((volatility_factor - 1) * 100, 2),
-            "volume_traded": random.randint(10000, 50000),  # Demo data
+            "24h_change": 0.0, # Stable until real feed connected
+            "volume_traded": "Market Data Unavailable", 
+            "note": "Price based on BEE Reference Rate"
         }
 
 

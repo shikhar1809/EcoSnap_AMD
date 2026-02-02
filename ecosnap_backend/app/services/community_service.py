@@ -1,12 +1,8 @@
-"""
-Enhanced Community Service
-Real-time leaderboard, neighborhood insights, social proof engine
-Note: GCP Firestore integration ready but using in-memory for demo
-"""
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from enum import Enum
 import random
+from app.database import supabase
 
 class ActionType(str, Enum):
     SOLAR_INSTALLED = "solar_installed"
@@ -17,93 +13,61 @@ class ActionType(str, Enum):
     CARBON_OFFSET = "carbon_offset"
 
 class CommunityService:
-    """Enhanced community features with social proof"""
-    
-    # In-memory storage (replace with Firestore in production)
-    _actions_db = []
-    _leaderboard_db = {}
-    _achievements_db = {}
-    
-    # Demo data for realistic leaderboard
-    DEMO_USERS = [
-        {"id": "u1", "name": "Priya Sharma", "city": "Mumbai", "avatar": "👩"},
-        {"id": "u2", "name": "Rahul Verma", "city": "Mumbai", "avatar": "👨"},
-        {"id": "u3", "name": "Anjali Patel", "city": "Mumbai", "avatar": "👩"},
-        {"id": "u4", "name": "Vikram Singh", "city": "Mumbai", "avatar": "👨"},
-        {"id": "u5", "name": "Sneha Reddy", "city": "Mumbai", "avatar": "👩"},
-        {"id": "u6", "name": "Arjun Mehta", "city": "Mumbai", "avatar": "👨"},
-        {"id": "u7", "name": "Kavya Iyer", "city": "Mumbai", "avatar": "👩"},
-        {"id": "u8", "name": "Rohan Gupta", "city": "Mumbai", "avatar": "👨"},
-        {"id": "u9", "name": "Divya Nair", "city": "Mumbai", "avatar": "👩"},
-        {"id": "u10", "name": "Aditya Kumar", "city": "Mumbai", "avatar": "👨"},
-    ]
+    """
+    Real-time Community Service backed by Supabase.
+    """
     
     @classmethod
-    def initialize_demo_data(cls):
-        """Initialize demo leaderboard data"""
-        if cls._leaderboard_db:
-            return  # Already initialized
+    def _ensure_initialized(cls):
+        """Check if DB has data, if not, seed it."""
+        try:
+            res = supabase.table("actions").select("count", count="exact").execute()
+            if res.count == 0:
+                print("Seeding Community DB...")
+                cls._seed_db()
+        except Exception as e:
+            print(f"DB Init Error (Table likely missing): {e}")
+
+    @classmethod
+    def _seed_db(cls):
+        """Seed initial real-world like data into Supabase"""
+        demo_users = [
+            {"id": "u1", "name": "Priya Sharma", "city": "Mumbai", "avatar_url": "https://i.pravatar.cc/150?u=1"},
+            {"id": "u2", "name": "Rahul Verma", "city": "Delhi", "avatar_url": "https://i.pravatar.cc/150?u=2"},
+            {"id": "u3", "name": "Anjali Patel", "city": "Bangalore", "avatar_url": "https://i.pravatar.cc/150?u=3"},
+            {"id": "u4", "name": "Vikram Singh", "city": "Jaipur", "avatar_url": "https://i.pravatar.cc/150?u=4"},
+            {"id": "u5", "name": "Sneha Reddy", "city": "Hyderabad", "avatar_url": "https://i.pravatar.cc/150?u=5"},
+        ]
         
-        for i, user in enumerate(cls.DEMO_USERS):
-            points = random.randint(500, 5000)
-            cls._leaderboard_db[user['id']] = {
-                "user_id": user['id'],
-                "name": user['name'],
-                "city": user['city'],
-                "avatar": user['avatar'],
-                "points": points,
-                "rank": i + 1,
-                "actions_count": random.randint(5, 50),
-                "co2_saved_kg": points * 2.5,
-                "streak_days": random.randint(1, 30),
-                "tier": cls._calculate_tier(points),
-                "badges": cls._generate_badges(points)
-            }
-        
-        # Generate demo actions
+        # Seed Users
+        for user in demo_users:
+            try:
+                supabase.table("users").upsert(user).execute()
+            except: pass
+
+        # Seed Actions
+        actions = []
         action_types = list(ActionType)
-        for _ in range(50):
-            user = random.choice(cls.DEMO_USERS)
+        for _ in range(20):
+            user = random.choice(demo_users)
             action = random.choice(action_types)
-            cls._actions_db.append({
-                "id": f"action_{len(cls._actions_db)}",
+            impact = cls._calculate_impact(action)
+            
+            actions.append({
                 "user_id": user['id'],
                 "user_name": user['name'],
                 "action": action.value,
-                "impact": cls._calculate_impact(action),
-                "timestamp": (datetime.now() - timedelta(hours=random.randint(1, 72))).isoformat(),
+                "impact": impact,
                 "city": user['city'],
+                "created_at": (datetime.now() - timedelta(hours=random.randint(1, 120))).isoformat(),
                 "verified": True
             })
-    
-    @classmethod
-    def _calculate_tier(cls, points: int) -> str:
-        """Calculate user tier based on points"""
-        if points >= 5000:
-            return "Circular Hero 🏆"
-        elif points >= 3000:
-            return "Green Champion 🌟"
-        elif points >= 1500:
-            return "Eco Warrior 🌱"
-        elif points >= 500:
-            return "Sustainability Starter 🌿"
-        else:
-            return "Beginner 🌾"
-    
-    @classmethod
-    def _generate_badges(cls, points: int) -> List[str]:
-        """Generate achievement badges"""
-        badges = []
-        if points >= 1000:
-            badges.append("Solar Pioneer ☀️")
-        if points >= 2000:
-            badges.append("Carbon Neutral 🌍")
-        if points >= 3000:
-            badges.append("Community Leader 👑")
-        if points >= 5000:
-            badges.append("Sustainability Legend 🎖️")
-        return badges
-    
+        
+        try:
+            supabase.table("actions").insert(actions).execute()
+        except Exception as e:
+            print(f"Seeding Actions Error: {e}")
+
     @classmethod
     def _calculate_impact(cls, action: ActionType) -> Dict:
         """Calculate impact of an action"""
@@ -116,199 +80,156 @@ class CommunityService:
             ActionType.CARBON_OFFSET: {"co2_saved_kg": 500, "points": 200},
         }
         return impacts.get(action, {"co2_saved_kg": 10, "points": 10})
-    
+
     @classmethod
     def get_leaderboard(cls, city: Optional[str] = None, limit: int = 10) -> List[Dict]:
-        """Get leaderboard for a city"""
-        cls.initialize_demo_data()
+        """Get real-time leaderboard from Supabase"""
+        cls._ensure_initialized()
         
-        leaderboard = list(cls._leaderboard_db.values())
-        
-        if city:
-            leaderboard = [u for u in leaderboard if u['city'] == city]
-        
-        # Sort by points
-        leaderboard.sort(key=lambda x: x['points'], reverse=True)
-        
-        # Update ranks
-        for i, user in enumerate(leaderboard):
-            user['rank'] = i + 1
-        
-        return leaderboard[:limit]
-    
+        try:
+            # We aggregate points from the actions table for "Real" calculation
+            # Or use a materialized view. For simplicity, we fetch top users.
+            # Assuming 'users' table has 'points' column updated via triggers or we calculate on fly.
+            # Simplified: Fetch users sorted by points if column exists, else mock calc from actions
+            
+            query = supabase.table("leaderboard_view").select("*").order("points", desc=True)
+            if city:
+                query = query.eq("city", city)
+            
+            res = query.limit(limit).execute()
+            
+            if not res.data:
+                 # Fallback if view doesn't exist (likely in this setup), calculate from actions
+                 all_actions = supabase.table("actions").select("*").execute().data
+                 user_points = {}
+                 for a in all_actions:
+                     uid = a.get('user_id')
+                     if isinstance(a.get('impact'), dict):
+                         pts = a['impact'].get('points', 0)
+                     else:
+                         pts = 0
+                     
+                     if uid not in user_points:
+                         user_points[uid] = {"user_id": uid, "name": a.get('user_name'), "points": 0, "city": a.get('city')}
+                     user_points[uid]['points'] += pts
+                 
+                 sorted_users = sorted(user_points.values(), key=lambda x: x['points'], reverse=True)
+                 for i, u in enumerate(sorted_users):
+                     u['rank'] = i + 1
+                     u['tier'] = cls._calculate_tier(u['points'])
+                     u['badges'] = cls._generate_badges(u['points'])
+                 
+                 return sorted_users[:limit]
+
+            return res.data
+        except Exception as e:
+            print(f"Leaderboard Error: {e}")
+            return []
+
     @classmethod
     def get_live_feed(cls, city: Optional[str] = None, limit: int = 20) -> List[Dict]:
-        """Get live community feed"""
-        cls.initialize_demo_data()
-        
-        actions = cls._actions_db.copy()
-        
-        if city:
-            actions = [a for a in actions if a['city'] == city]
-        
-        # Sort by timestamp (newest first)
-        actions.sort(key=lambda x: x['timestamp'], reverse=True)
-        
-        return actions[:limit]
-    
-    @classmethod
-    def get_neighborhood_insights(cls, city: str, user_location: Optional[Dict] = None) -> Dict:
-        """Get neighborhood insights and social proof"""
-        cls.initialize_demo_data()
-        
-        # Filter actions by city
-        city_actions = [a for a in cls._actions_db if a['city'] == city]
-        
-        # Count actions by type
-        action_counts = {}
-        for action in city_actions:
-            action_type = action['action']
-            action_counts[action_type] = action_counts.get(action_type, 0) + 1
-        
-        # Find top action
-        top_action = max(action_counts.items(), key=lambda x: x[1]) if action_counts else ("solar_installed", 0)
-        
-        # Calculate total impact
-        total_co2_saved = sum(a['impact']['co2_saved_kg'] for a in city_actions)
-        
-        # Get recent adopters
-        recent_solar = [a for a in city_actions if a['action'] == 'solar_installed'][-5:]
-        
-        return {
-            "city": city,
-            "total_actions": len(city_actions),
-            "total_co2_saved_kg": round(total_co2_saved, 2),
-            "top_action": {
-                "type": top_action[0],
-                "count": top_action[1],
-                "trend": "↑ 45% this month"
-            },
-            "solar_installations": action_counts.get('solar_installed', 0),
-            "ev_purchases": action_counts.get('ev_purchased', 0),
-            "social_proof": f"{action_counts.get('solar_installed', 41)} homes in your area went solar",
-            "trending": "Solar panels (+45% this month)",
-            "recent_adopters": [
-                {"name": a['user_name'], "action": a['action'], "days_ago": random.randint(1, 7)}
-                for a in recent_solar
-            ],
-            "neighborhood_rank": random.randint(1, 50),
-            "total_neighborhoods": 150
-        }
-    
+        """Get live feed from Supabase"""
+        cls._ensure_initialized()
+        try:
+            query = supabase.table("actions").select("*").order("created_at", desc=True)
+            if city:
+                query = query.eq("city", city)
+            
+            res = query.limit(limit).execute()
+            return res.data
+        except Exception as e:
+            print(f"Feed Error: {e}")
+            return []
+
     @classmethod
     def post_action(cls, user_id: str, user_name: str, action: ActionType, city: str) -> Dict:
-        """Post a new action to the feed"""
-        cls.initialize_demo_data()
-        
+        """Post action to Supabase"""
         impact = cls._calculate_impact(action)
         
         new_action = {
-            "id": f"action_{len(cls._actions_db)}",
             "user_id": user_id,
             "user_name": user_name,
             "action": action.value,
             "impact": impact,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat(), # Some legacy fields kept for frontend compat
+            "created_at": datetime.now().isoformat(),
             "city": city,
             "verified": True
         }
         
-        cls._actions_db.append(new_action)
-        
-        # Update leaderboard
-        if user_id in cls._leaderboard_db:
-            cls._leaderboard_db[user_id]['points'] += impact['points']
-            cls._leaderboard_db[user_id]['actions_count'] += 1
-            cls._leaderboard_db[user_id]['co2_saved_kg'] += impact['co2_saved_kg']
-        else:
-            cls._leaderboard_db[user_id] = {
-                "user_id": user_id,
-                "name": user_name,
-                "city": city,
-                "avatar": "👤",
-                "points": impact['points'],
-                "rank": len(cls._leaderboard_db) + 1,
-                "actions_count": 1,
-                "co2_saved_kg": impact['co2_saved_kg'],
-                "streak_days": 1,
-                "tier": cls._calculate_tier(impact['points']),
-                "badges": []
-            }
-        
-        return {
-            "action": new_action,
-            "points_earned": impact['points'],
-            "new_total_points": cls._leaderboard_db[user_id]['points'],
-            "new_rank": cls._calculate_rank(user_id),
-            "tier": cls._leaderboard_db[user_id]['tier']
-        }
-    
+        try:
+            res = supabase.table("actions").insert(new_action).execute()
+            return {"success": True, "action": res.data[0] if res.data else new_action}
+        except Exception as e:
+            print(f"Post Action Error: {e}")
+            return {"error": str(e)}
+
     @classmethod
-    def _calculate_rank(cls, user_id: str) -> int:
-        """Calculate user's current rank"""
-        leaderboard = sorted(
-            cls._leaderboard_db.values(),
-            key=lambda x: x['points'],
-            reverse=True
-        )
-        for i, user in enumerate(leaderboard):
-            if user['user_id'] == user_id:
-                return i + 1
-        return len(leaderboard)
-    
-    @classmethod
-    def get_user_stats(cls, user_id: str) -> Dict:
-        """Get user statistics"""
-        cls.initialize_demo_data()
-        
-        if user_id not in cls._leaderboard_db:
+    def get_neighborhood_insights(cls, city: str) -> Dict:
+        """Real stats from DB"""
+        cls._ensure_initialized()
+        try:
+            res = supabase.table("actions").select("*").eq("city", city).execute()
+            actions = res.data
+            
+            total = len(actions)
+            solar = sum(1 for a in actions if a['action'] == 'solar_installed')
             return {
-                "user_id": user_id,
-                "message": "No activity yet. Start your sustainability journey!"
+                "city": city,
+                "total_actions": total,
+                "solar_installations": solar,
+                "social_proof": f"{solar} homes in {city} went solar recently."
             }
-        
-        user = cls._leaderboard_db[user_id]
-        user_actions = [a for a in cls._actions_db if a['user_id'] == user_id]
-        
-        return {
-            **user,
-            "recent_actions": user_actions[-5:],
-            "total_actions": len(user_actions),
-            "achievements": cls._achievements_db.get(user_id, [])
-        }
-    
+        except:
+            return {"city": city, "error": "Could not fetch insights"}
+
+    # Helpers
+    @staticmethod
+    def _calculate_tier(points):
+        if points > 5000: return "Legend"
+        elif points > 1000: return "Pro"
+        else: return "Rookie"
+
+    @staticmethod
+    def _generate_badges(points):
+        badges = []
+        if points > 100: badges.append("First Step")
+        if points > 1000: badges.append("Eco Warrior")
+        return badges
+
     @classmethod
     def get_challenges(cls, city: str) -> List[Dict]:
-        """Get active community challenges"""
+        """
+        Challenges are currently global configuration, 
+        but we fetch progress from Real DB.
+        """
+        # In a full Real app, challenges would be a table.
+        # Here we mock the CONFIG but calculate REAL PROGRESS.
+        
+        # Real calculation: Count solar installs in DB
+        try:
+            res = supabase.table("actions").select("count", count="exact").eq("action", "solar_installed").execute()
+            solar_count = res.count
+        except:
+            solar_count = 0
+
         return [
             {
-                "id": "challenge_1",
-                "name": "Solar Sprint",
-                "description": "100 homes go solar in Mumbai this month",
-                "progress": 67,
-                "target": 100,
-                "participants": 234,
-                "reward": "500 bonus points",
-                "ends_in": "12 days"
-            },
-            {
-                "id": "challenge_2",
-                "name": "Zero Waste Week",
-                "description": "Recycle 1000kg of waste",
-                "progress": 450,
-                "target": 1000,
-                "participants": 89,
-                "reward": "300 bonus points",
-                "ends_in": "5 days"
-            },
-            {
-                "id": "challenge_3",
-                "name": "Green Commute",
-                "description": "50 EV purchases this quarter",
-                "progress": 23,
-                "target": 50,
-                "participants": 156,
-                "reward": "1000 bonus points",
-                "ends_in": "45 days"
+                "id": "c1", 
+                "name": "Solar Sprint", 
+                "target": 100, 
+                "progress": solar_count, 
+                "description": "Reach 100 Solar Installs",
+                "ends_in": "30 days"
             }
         ]
+
+    # Legacy method stubs if needed
+    @classmethod
+    def get_user_stats(cls, user_id: str) -> Dict:
+        try:
+            res = supabase.table("actions").select("*").eq("user_id", user_id).execute()
+            actions = res.data
+            return {"user_id": user_id, "total_actions": len(actions), "recent_actions": actions[:5]}
+        except:
+            return {}

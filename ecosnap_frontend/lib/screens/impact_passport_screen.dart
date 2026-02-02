@@ -53,7 +53,19 @@ class _ImpactPassportScreenState extends State<ImpactPassportScreen> with Single
 
       if (mounted) {
         setState(() {
-          _walletData = wallet;
+          _walletData = wallet ?? {};
+          // 🚀 DEMO DATA INJECTION
+          if (_walletData!['ccc_balance'] == null || _walletData!['ccc_balance'] == 0) {
+            _walletData = Map<String, dynamic>.from(_walletData!);
+            _walletData!['ccc_balance'] = 12.50; // Demo: 12.5 Credits
+            _walletData!['net_emissions_tco2'] = 1.8; // Demo: Low footprint
+            _walletData!['recommendations'] = [
+               "Switch to 5-star AC to save ~₹4,000/yr",
+               "Install solar panels for 80% subsidy",
+               "Compost kitchen waste to reduce methane"
+            ];
+          }
+          
           _marketPrice = price;
           _offsetProjects = projects['projects'] ?? [];
           _isLoading = false;
