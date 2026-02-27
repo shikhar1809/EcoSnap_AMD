@@ -188,6 +188,34 @@ class _Warrior3DScreenState extends State<Warrior3DScreen> with SingleTickerProv
               fit: BoxFit.cover,
             ),
             
+            // Holographic Gear Overlays
+            if (widget.equippedHelmet != null)
+              Positioned(
+                top: 30,
+                left: 0, right: 0,
+                child: Center(
+                  child: Icon(_getIconForGear(widget.equippedHelmet!), color: _getColorForGear(widget.equippedHelmet!).withOpacity(0.85), size: 100)
+                    .animate(onPlay: (c) => c.repeat(reverse: true)).shimmer(duration: 3.seconds).fadeIn(),
+                ),
+              ),
+            if (widget.equippedArmor != null)
+              Positioned(
+                top: 150,
+                left: 0, right: 0,
+                child: Center(
+                  child: Icon(_getIconForGear(widget.equippedArmor!), color: _getColorForGear(widget.equippedArmor!).withOpacity(0.85), size: 160)
+                    .animate(onPlay: (c) => c.repeat(reverse: true)).shimmer(duration: 3.seconds).fadeIn(),
+                ),
+              ),
+            if (widget.equippedShield != null)
+              Positioned(
+                bottom: 100,
+                right: 20,
+                child: Icon(_getIconForGear(widget.equippedShield!), color: _getColorForGear(widget.equippedShield!).withOpacity(0.85), size: 120)
+                  .animate(onPlay: (c) => c.repeat(reverse: true)).shimmer(duration: 3.seconds).fadeIn()
+                  .slide(begin: const Offset(0.1, 0)),
+              ),
+            
             // Holographic Gradient Overlay
             Container(
               decoration: BoxDecoration(
@@ -258,5 +286,23 @@ class _Warrior3DScreenState extends State<Warrior3DScreen> with SingleTickerProv
         ),
       ),
     );
+  }
+
+  IconData _getIconForGear(String gearName) {
+    if (gearName.contains("Forest")) return Icons.shield_moon;
+    if (gearName.contains("Solar")) return Icons.wb_sunny;
+    if (gearName.contains("Recycle")) return Icons.recycling;
+    if (gearName.contains("Wings")) return Icons.flight;
+    if (gearName.contains("Ocean")) return Icons.water_drop;
+    return Icons.security; // default
+  }
+
+  Color _getColorForGear(String gearName) {
+    if (gearName.contains("Forest")) return Colors.greenAccent;
+    if (gearName.contains("Solar")) return Colors.orangeAccent;
+    if (gearName.contains("Recycle")) return Colors.blueAccent;
+    if (gearName.contains("Wings")) return Colors.purpleAccent;
+    if (gearName.contains("Ocean")) return Colors.cyanAccent;
+    return Colors.white; // default
   }
 }

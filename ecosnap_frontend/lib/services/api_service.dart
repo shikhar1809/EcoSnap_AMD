@@ -22,7 +22,7 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getAnalysisQuestions(List<int> bytes, String filename, {String? userNote, String scanMode = "quick"}) async {
+  Future<Map<String, dynamic>> getAnalysisQuestions(List<int> bytes, String filename, {String? userNote, String scanMode = "deep"}) async {
     try {
       final formData = FormData.fromMap({
         'files': MultipartFile.fromBytes(bytes, filename: filename),

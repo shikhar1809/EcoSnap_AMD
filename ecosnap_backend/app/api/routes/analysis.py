@@ -83,8 +83,8 @@ async def analyze_image(
     # 3. Inject Location-Based Wind & Solar Data
     journey = analysis_result.get('journey', 'SPECIAL')
     
-    # NEW logic for Property/House Front
-    if journey in ['SOLAR_AUDIT', 'PROPERTY_EXTERIOR'] or 'solar' in journey.lower():
+    # NEW logic for Property/House Front, Wind, and Land
+    if journey in ['SOLAR_AUDIT', 'PROPERTY_EXTERIOR', 'WIND_ANALYSIS', 'LAND_ANALYSIS'] or 'solar' in journey.lower():
         from app.services.weather_service import WeatherService
         
         # Use provided lat/lon or default to a demo location (Lucknow) if missing
@@ -108,9 +108,59 @@ async def analyze_image(
             "suitability": wind_data['suitability'],
             "potential_power_kwh": "2.4 kWh/day" if wind_data['suitability'] == 'High' else "1.1 kWh/day"
         }
+
+        # ENSURE Wind Analysis Tabs have data (Fallback if Gemini misses it)
+        if journey == 'WIND_ANALYSIS':
+            # 1. Fallback for Wind Potential (Main Tab)
+            if not analysis_result.get('wind_potential'):
+                # Map simple weather service data to detailed schema
+                score = 85 if wind_data['suitability'] == 'High' else (50 if wind_data['suitability'] == 'Medium' else 25)
+                analysis_result['wind_potential'] = {
+                    "viability_score": score,
+                    "recommended_turbine_type": "VAWT (Vertical Axis)",
+                    "estimated_capacity_kw": 1.5,
+                    "estimated_annual_generation_kwh": 600 if score > 50 else 300
+                }
+
+            # 2. Fallback for Site Analysis (Context)
+            if not analysis_result.get('site_analysis'):
+                analysis_result['site_analysis'] = {
+                    "roughness_class": "3 (Suburban)",
+                    "estimated_hub_height_m": 10,
+                    "obstacle_interference": "Low",
+                    "flow_quality": "Turbulent"
+                }
+
+            # 3. Fallback for Installation
+            if not analysis_result.get('installation_feasibility'):
+                analysis_result['installation_feasibility'] = {
+                    "structural_integrity": "Assessment Pending (Visual)",
+                    "noise_impact_risk": "Low" if wind_data['wind_speed_ms'] < 8 else "Moderate",
+                    "safety_zone_radius_m": 12.5
+                }
+                
+            # 4. Fallback for Financials
+            if not analysis_result.get('financial_analysis'):
+                # Heuristic estimates based on wind suitability
+                is_high = wind_data['suitability'] == 'High'
+                daily_kwh = 3.5 if is_high else 1.2
+                daily_savings = daily_kwh * 8.5  # Approx tariff
+                annual_savings = daily_savings * 365
+                system_cost = 85000 if is_high else 60000
+                roi = (annual_savings / system_cost) * 100
+                
+                analysis_result['financial_analysis'] = {
+                    "system_cost_estimate_inr": system_cost,
+                    "payback_period_years": round(system_cost / annual_savings, 1),
+                    "roi_percent": round(roi, 1)
+                }
+            
+            # Ensure recommendation exists
+            if not analysis_result.get('recommendation'):
+                 analysis_result['recommendation'] = "Based on wind speeds, a vertical axis turbine is recommended for this location."
     
-    # 4. Generate optional depth map for room/solar journeys
-    if journey in ['SOLAR_AUDIT', 'ROOM_ENERGY']:
+    # 4. Generate optional depth map for room/solar/land journeys
+    if journey in ['SOLAR_AUDIT', 'ROOM_ENERGY', 'LAND_ANALYSIS']:
         try:
             from app.services.depth_service import DepthService
             depth_map = DepthService.generate_depth_map(contents)

@@ -58,6 +58,13 @@ class _CommitmentScreenState extends State<CommitmentScreen> {
     },
   ];
 
+  final List<Map<String, dynamic>> _recentActions = [
+    {"action": "Scanned reusable bottle", "xp": "+50", "time": "2 mins ago", "icon": Icons.water_drop, "color": Colors.cyanAccent},
+    {"action": "Bought Solar Lamp", "xp": "+200", "time": "1 hr ago", "icon": Icons.lightbulb, "color": Colors.orangeAccent},
+    {"action": "Placed AR Furniture", "xp": "+150", "time": "3 hrs ago", "icon": Icons.chair, "color": Colors.greenAccent},
+    {"action": "Recycled cardboard", "xp": "+30", "time": "Yesterday", "icon": Icons.recycling, "color": Colors.brown},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -148,6 +155,18 @@ class _CommitmentScreenState extends State<CommitmentScreen> {
       ),
       body: Column(
         children: [
+          // STREAK FLAME
+          _buildStreakFlame(),
+          
+          // DAILY QUESTS
+          _buildDailyQuests(),
+          
+          // XP PROGRESS BAR
+          _buildXPProgressBar(),
+          
+          // RECENT ACTIONS FEED
+          _buildRecentActionsFeed(),
+          
           // LEVEL MAP AREA
           Expanded(
             child: LevelMapWidget(
@@ -260,6 +279,107 @@ class _CommitmentScreenState extends State<CommitmentScreen> {
     }
   }
 
+  Widget _buildStreakFlame() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.orangeAccent.withOpacity(0.2), Colors.redAccent.withOpacity(0.1)]),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.local_fire_department, color: Colors.orangeAccent, size: 28)
+                .animate(onPlay: (c) => c.repeat(reverse: true)).scale(begin: const Offset(1,1), end: const Offset(1.2,1.2)),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text("7 Day Streak!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text("You're on fire! 1.5x points active.", style: TextStyle(color: Colors.white70, fontSize: 10)),
+                ],
+              ),
+            ],
+          ),
+          Row(
+            children: List.generate(7, (index) {
+              bool isDone = index < 7;
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 12, height: 12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDone ? Colors.orangeAccent : Colors.white12,
+                  boxShadow: isDone ? [BoxShadow(color: Colors.orangeAccent.withOpacity(0.5), blurRadius: 4)] : null,
+                ),
+              );
+            }),
+          )
+        ],
+      )
+    );
+  }
+
+  Widget _buildDailyQuests() {
+    final quests = [
+      {"title": "Log 1 Meatless Meal", "xp": 50, "done": true},
+      {"title": "Scan a new room", "xp": 100, "done": false},
+      {"title": "Read an Eco-Tip", "xp": 20, "done": false}
+    ];
+    
+    return Container(
+      height: 90,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Daily Quests (1/3)", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: quests.length,
+              itemBuilder: (ctx, i) {
+                final q = quests[i];
+                bool isDone = q['done'] as bool;
+                return Container(
+                  width: 160,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isDone ? Colors.greenAccent.withOpacity(0.1) : Colors.black45,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDone ? Colors.greenAccent : Colors.white10),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(isDone ? Icons.check_circle : Icons.radio_button_unchecked, 
+                            color: isDone ? Colors.greenAccent : Colors.white38, size: 16),
+                          const Spacer(),
+                          Text("+${q['xp']} XP", style: TextStyle(color: isDone ? Colors.greenAccent : Colors.amber, fontSize: 10, fontWeight: FontWeight.bold))
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(q['title'] as String, style: TextStyle(color: isDone ? Colors.greenAccent : Colors.white, fontSize: 11, fontWeight: FontWeight.w500), maxLines: 2),
+                    ],
+                  ),
+                );
+              },
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
   Widget _buildShopSheet() {
     return Container(
       height: 400,
@@ -297,6 +417,104 @@ class _CommitmentScreenState extends State<CommitmentScreen> {
               },
             ),
           )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildXPProgressBar() {
+    int nextLevelXP = ((ecoPoints ~/ 500) + 1) * 500;
+    double progress = (ecoPoints % 500) / 500.0;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.greenAccent.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Level ${ecoPoints ~/ 500}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text("$ecoPoints / $nextLevelXP XP", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  Container(height: 12, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(6))),
+                  AnimatedContainer(
+                    duration: 1.seconds,
+                    curve: Curves.easeOutCubic,
+                    height: 12,
+                    width: constraints.maxWidth * progress,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Colors.greenAccent, Colors.tealAccent]),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [BoxShadow(color: Colors.greenAccent.withOpacity(0.5), blurRadius: 10)],
+                    ),
+                  ),
+                ],
+              );
+            }
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.2, end: 0);
+  }
+
+  Widget _buildRecentActionsFeed() {
+    return Container(
+      height: 120,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Recent Eco-Actions", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _recentActions.length,
+              itemBuilder: (context, index) {
+                final action = _recentActions[index];
+                return Container(
+                  width: 130,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(action['icon'], color: action['color'], size: 18),
+                          const Spacer(),
+                          Text(action['xp'], style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(action['action'], style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const Spacer(),
+                      Text(action['time'], style: const TextStyle(color: Colors.white38, fontSize: 9)),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: (index * 100).ms).slideX();
+              },
+            ),
+          ),
         ],
       ),
     );

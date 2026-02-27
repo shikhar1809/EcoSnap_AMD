@@ -17,6 +17,7 @@ def detect_journey_from_gemini_response(gemini_response: any, image_description:
     
     # SPACE_AUDIT maps to SOLAR_AUDIT in our new system
     if "solar_audit" in text_lower or "space_audit" in text_lower: return "SOLAR_AUDIT"
+    if "land_analysis" in text_lower or "land_audit" in text_lower or "farm_analysis" in text_lower: return "LAND_ANALYSIS"
     if "room_audit" in text_lower: return "ROOM_AUDIT"
     if "space_planning" in text_lower: return "SPACE_PLANNING"
     if "find_alternative" in text_lower: return "FIND_ALTERNATIVE"

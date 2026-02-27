@@ -104,9 +104,9 @@ class _ImpactPassportScreenState extends State<ImpactPassportScreen> with Single
         elevation: 0,
         title: const Row(
           children: [
-            Icon(Icons.verified, color: Colors.greenAccent),
+            Icon(Icons.account_balance_wallet, color: Colors.greenAccent),
             SizedBox(width: 8),
-            Text("Impact Passport & Carbon", style: TextStyle(color: Colors.white, fontSize: 16)),
+            Text("Eco-Wallet & Passport", style: TextStyle(color: Colors.white, fontSize: 16)),
           ],
         ),
         leading: IconButton(
@@ -152,7 +152,16 @@ class _ImpactPassportScreenState extends State<ImpactPassportScreen> with Single
       child: Column(
         children: [
           // Main Passport Card
-          ImpactPassport.demo(),
+          ImpactPassport(
+            userName: "Eco Warrior", // Could be from user state
+            totalCo2Saved: 127.5, // Could be from insights
+            scansCompleted: 42,
+            treesEquivalent: 6,
+            ecoLevel: "Climate Champion",
+            memberSince: DateTime.now().subtract(const Duration(days: 45)),
+            verificationHash: "0xVERIFIED_HASH_DEMO",
+            carbonCreditsBalance: _walletData?['ccc_balance'] ?? 12.50,
+          ),
           
           const SizedBox(height: 10),
           const GreenAiMetrics(),
@@ -207,10 +216,8 @@ class _ImpactPassportScreenState extends State<ImpactPassportScreen> with Single
   }
 
   Widget _buildWalletTab() {
-    final balance = _walletData?['ccc_balance'] ?? 0.0;
-    final price = _marketPrice?['price_per_tco2'] ?? 1500.0;
-    final value = balance * price;
-    final emissions = _walletData?['net_emissions_tco2'] ?? 2.5;
+    final balance = _walletData?['ccc_balance'] ?? 12.50;
+    final ecoTokens = (balance * 100).toInt(); // Conversion rate
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -221,76 +228,106 @@ class _ImpactPassportScreenState extends State<ImpactPassportScreen> with Single
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF11998e), Color(0xFF38ef7d)]),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.greenAccent.withOpacity(0.3), blurRadius: 10, spreadRadius: 2)],
+              gradient: const LinearGradient(colors: [Color(0xFF232526), Color(0xFF414345)]),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.amberAccent.withOpacity(0.5), width: 2),
+              boxShadow: [BoxShadow(color: Colors.amberAccent.withOpacity(0.2), blurRadius: 20)],
             ),
             child: Column(
               children: [
-                const Text("Carbon Credit Balance", style: TextStyle(color: Colors.white, fontSize: 16)),
+                const Text("Total EcoTokens Mined ⛏️", style: TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 10),
-                Text("${balance.toStringAsFixed(2)} CCC", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                Text("₹${NumberFormat('#,##,###').format(value)} Market Value", style: const TextStyle(color: Colors.white70)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.monetization_on, color: Colors.amberAccent, size: 40),
+                    const SizedBox(width: 10),
+                    Text("$ecoTokens", style: const TextStyle(color: Colors.amberAccent, fontSize: 48, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Text("≈ ₹${NumberFormat('#,##,###').format(ecoTokens * 2.5)} Value", style: const TextStyle(color: Colors.white54)),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _ActionButton(icon: Icons.add_circle, label: "Earn", onTap: () {}),
-                    _ActionButton(icon: Icons.shopping_cart, label: "Buy", onTap: () {}),
-                    _ActionButton(icon: Icons.sell, label: "Sell", onTap: () {}),
+                    _ActionButton(icon: Icons.qr_code_scanner, label: "Pay/Redeem", onTap: () {}),
+                    _ActionButton(icon: Icons.swap_horiz, label: "Swap to Fiat", onTap: () {}),
+                    _ActionButton(icon: Icons.send, label: "Send to Friend", onTap: () {}),
                   ],
                 )
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 30),
 
-          // Household Emissions
-          const Text("Household Footprint 🏠", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
+          // Storefront
+          const Row(
+            children: [
+               Icon(Icons.storefront, color: Colors.white),
+               SizedBox(width: 8),
+               Text("Rewards Storefront 🛍️", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ]
+          ),
+          const SizedBox(height: 15),
+          
+          _buildRewardItem("5% Off Solar Installation", 5000, Icons.solar_power, Colors.orangeAccent),
+          _buildRewardItem("Free EV Charging Session (1hr)", 500, Icons.ev_station, Colors.blueAccent),
+          _buildRewardItem("Plant a Tree in your name", 250, Icons.forest, Colors.green),
+          _buildRewardItem("1 Month Premium Eco-Stats", 100, Icons.analytics, Colors.purpleAccent),
+          
+          const SizedBox(height: 20),
+          // Household Emissions Summary
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
-            child: Column(
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Net Emissions", style: TextStyle(color: Colors.white70)),
-                    Text("${emissions.toStringAsFixed(2)} tCO2e", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text("Carbon Footprint", style: TextStyle(color: Colors.white70)),
+                    Text("1.8 tCO2e / yr", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
                   ],
                 ),
-                const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value: (emissions / 5.0).clamp(0.0, 1.0),
-                  backgroundColor: Colors.grey[800],
-                  valueColor: AlwaysStoppedAnimation<Color>(emissions < 2.5 ? Colors.green : Colors.orange),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  emissions < 2.5 ? "🌱 You are below India's average!" : "⚠️ You are above India's average.",
-                  style: TextStyle(color: emissions < 2.5 ? Colors.greenAccent : Colors.orangeAccent, fontSize: 12),
-                ),
+                const Icon(Icons.eco, color: Colors.greenAccent, size: 30),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 20),
-          // Recommendations
-          if (_walletData?['recommendations'] != null) ...[
-            const Text("Recommendations 💡", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            ...(_walletData!['recommendations'] as List).map((rec) => 
-              Card(
-                color: Colors.white.withOpacity(0.05),
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ListTile(
-                  leading: const Icon(Icons.lightbulb, color: Colors.yellowAccent),
-                  title: Text(rec, style: const TextStyle(color: Colors.white70)),
-                ),
-              )
-            ).toList(),
-          ]
+  Widget _buildRewardItem(String title, int cost, IconData icon, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 15),
+          Expanded(child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: Colors.amberAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+            child: Row(
+              children: [
+                const Icon(Icons.monetization_on, color: Colors.amberAccent, size: 14),
+                const SizedBox(width: 4),
+                Text("$cost", style: const TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+              ],
+            ),
+          )
         ],
       ),
     );

@@ -42,9 +42,42 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
       if (mounted) {
         setState(() {
-          _products = productsRes['products'] ?? [];
-          _services = servicesRes['products'] ?? [];
+          _products = productsRes?['products'] ?? [];
+          _services = servicesRes?['products'] ?? [];
+          
+          // 🚀 DEMO DATA FALLBACKS
+          if (_products.isEmpty) {
+            _products = [
+              {"name": "5kW Mono Perc Solar Panel", "category": "solar_equipment", "price": "45,000", "subsidy_eligible": true, "seller": {"name": "Tata Power"}},
+              {"name": "Smart Energy Meter", "category": "energy_efficient", "price": "2,499", "subsidy_eligible": false, "seller": {"name": "Schneider Electric"}},
+              {"name": "Bamboo Fiber Cutlery", "category": "sustainable_products", "price": "850", "subsidy_eligible": false, "seller": {"name": "EcoStore"}},
+              {"name": "5-Star Inverter AC", "category": "energy_efficient", "price": "38,000", "subsidy_eligible": true, "seller": {"name": "Daikin"}},
+            ];
+          }
+          
+          if (_services.isEmpty) {
+            _services = [
+              {"name": "Solar Rooftop Audit", "price_range": "Free", "rating": 4.8, "reviews_count": 1250, "seller": {"name": "CleanTech Solutions"}},
+              {"name": "Energy Efficiency Consultation", "price_range": "₹999", "rating": 4.9, "reviews_count": 450, "seller": {"name": "EcoHome Ltd"}},
+              {"name": "EV Charger Installation", "price_range": "₹5,000+", "rating": 4.7, "reviews_count": 890, "seller": {"name": "QuickCharge"}},
+            ];
+          }
+
           _solarDemo = solarRes;
+          
+          // 🚀 SOLAR DEMO FALLBACK
+          if (_solarDemo == null || _solarDemo!['pricing'] == null) {
+            _solarDemo = {
+              "pricing": {"net_cost": "1,45,000"},
+              "roi": {"annual_savings": "24,000", "payback_period_years": 4.5, "five_year_profit": "1,20,000"},
+              "components": {
+                "panels": {"quantity": 8, "product": "Tata Power 335W Mono"},
+                "inverter": {"product": "Luminous 3kVA Hybrid"},
+                "installation": {"service": "MNRE Certified Partner"}
+              }
+            };
+          }
+          
           _isLoading = false;
         });
       }
@@ -62,7 +95,28 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       });
       final res = await _apiService.getMarketplaceProducts(category: newValue);
       setState(() {
-        _products = res['products'] ?? [];
+        _products = res?['products'] ?? [];
+        
+        // 🚀 DEMO DATA FALLBACK FOR CATEGORIES
+        if (_products.isEmpty) {
+          if (newValue == 'solar_equipment') {
+            _products = [
+              {"name": "5kW Mono Perc Solar Panel", "category": "solar_equipment", "price": "45,000", "subsidy_eligible": true, "seller": {"name": "Tata Power"}},
+              {"name": "Solar Hybrid Inverter", "category": "solar_equipment", "price": "32,000", "subsidy_eligible": true, "seller": {"name": "Luminous"}},
+            ];
+          } else if (newValue == 'energy_efficient') {
+            _products = [
+              {"name": "Smart Energy Meter", "category": "energy_efficient", "price": "2,499", "subsidy_eligible": false, "seller": {"name": "Schneider Electric"}},
+              {"name": "5-Star Inverter AC", "category": "energy_efficient", "price": "38,000", "subsidy_eligible": true, "seller": {"name": "Daikin"}},
+            ];
+          } else if (newValue == 'sustainable_products') {
+            _products = [
+              {"name": "Bamboo Fiber Cutlery", "category": "sustainable_products", "price": "850", "subsidy_eligible": false, "seller": {"name": "EcoStore"}},
+              {"name": "Biodegradable Trash Bags", "category": "sustainable_products", "price": "199", "subsidy_eligible": false, "seller": {"name": "NatureCare"}},
+            ];
+          }
+        }
+        
         _isLoading = false;
       });
     }

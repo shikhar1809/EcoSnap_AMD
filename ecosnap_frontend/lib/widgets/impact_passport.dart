@@ -13,6 +13,7 @@ class ImpactPassport extends StatelessWidget {
   final String ecoLevel;
   final DateTime memberSince;
   final String verificationHash;
+  final double carbonCreditsBalance; // NEW: Carbon Credits
 
   const ImpactPassport({
     super.key,
@@ -23,6 +24,7 @@ class ImpactPassport extends StatelessWidget {
     required this.ecoLevel,
     required this.memberSince,
     required this.verificationHash,
+    this.carbonCreditsBalance = 0.0,
   });
 
   factory ImpactPassport.demo() {
@@ -34,6 +36,7 @@ class ImpactPassport extends StatelessWidget {
       ecoLevel: "Climate Champion",
       memberSince: DateTime.now().subtract(const Duration(days: 45)),
       verificationHash: "0x${Random().nextInt(999999).toRadixString(16).padLeft(6, '0')}...${Random().nextInt(9999).toRadixString(16).padLeft(4, '0')}",
+      carbonCreditsBalance: 12.50,
     );
   }
 
@@ -123,16 +126,17 @@ class ImpactPassport extends StatelessWidget {
             ),
           ),
 
-          // Main Stats
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 10), // Reduced padding for 4 items
             child: Row(
               children: [
-                Expanded(child: _buildMainStat("🌍", "${totalCo2Saved.toStringAsFixed(1)}", "kg CO₂ Saved")),
+                Expanded(child: _buildMainStat("🌍", "${totalCo2Saved.toStringAsFixed(1)}", "kg CO₂")),
                 _buildDivider(),
-                Expanded(child: _buildMainStat("🌳", "$treesEquivalent", "Trees Equivalent")),
+                Expanded(child: _buildMainStat("🌳", "$treesEquivalent", "Trees")),
                 _buildDivider(),
-                Expanded(child: _buildMainStat("📸", "$scansCompleted", "Eco Scans")),
+                Expanded(child: _buildMainStat("📸", "$scansCompleted", "Scans")),
+                _buildDivider(),
+                Expanded(child: _buildMainStat("☁️", "${carbonCreditsBalance.toStringAsFixed(2)}", "Credits")),
               ],
             ),
           ),

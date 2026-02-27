@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
-class AdvancedFeatureService {
+class AdvancedFeatureService extends ChangeNotifier {
   final Random _random = Random();
 
   /// Simulates real-time video analysis for packaging
@@ -64,6 +65,51 @@ class AdvancedFeatureService {
         {"name": "Beef Jerky", "carbon": 4.5},
         {"name": "Water Case", "carbon": 2.1},
       ]
+    };
+  }
+
+  // --- AMD Ryzen AI Edge Simulation State ---
+  bool _isEdgeModeEnabled = false;
+
+  bool get isEdgeModeEnabled => _isEdgeModeEnabled;
+
+  void toggleEdgeMode(bool value) {
+    _isEdgeModeEnabled = value;
+    notifyListeners();
+  }
+
+  /// Fetches simulated Green AI compute statistics from the backend
+  Future<Map<String, dynamic>> getAiComputeStats(bool edgeEnabled) async {
+    // In a real app, this would hit the backend: 
+    // GET /api/system/ai-compute-stats?edge_enabled=$edgeEnabled
+    
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    int cloudLatency = 850;
+    double cloudCo2 = 0.45;
+    int totalInferences = 12450;
+    
+    int edgeLatency = 45;
+    double edgeCo2 = 0.02;
+    
+    int currentLatency = edgeEnabled ? edgeLatency : cloudLatency;
+    double currentCo2 = edgeEnabled ? edgeCo2 : cloudCo2;
+    
+    double totalSaved = edgeEnabled ? (cloudCo2 - edgeCo2) * totalInferences : 0;
+
+    return {
+      "is_edge_mode_active": edgeEnabled,
+      "hardware_profile": edgeEnabled ? "AMD Ryzen™ AI NPU" : "Cloud Server GPU",
+      "performance": {
+          "latency_ms": currentLatency,
+          "latency_improvement_percent": edgeEnabled ? ((1 - (edgeLatency / cloudLatency)) * 100).round() : 0
+      },
+      "sustainability": {
+          "co2_emitted_per_scan_grams": currentCo2,
+          "total_platform_inferences": totalInferences,
+          "total_co2_saved_grams": totalSaved.toStringAsFixed(2),
+          "cloud_baseline_co2_grams": cloudCo2 * totalInferences
+      }
     };
   }
 }

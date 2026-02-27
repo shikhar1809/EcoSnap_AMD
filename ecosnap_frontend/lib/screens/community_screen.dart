@@ -36,6 +36,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   bool _showSolarHomes = true;
   bool _showGreenZones = true;
   bool _showConstruction = true;
+  
+  // Leaderboard state
+  bool _isGlobalLeaderboard = false;
 
   @override
   void initState() {
@@ -65,7 +68,22 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
             return item;
           }).toList();
           _insights = insightsRes;
+          // Fix for null Actions count
+          if (_insights['feed_count'] == null) {
+             _insights['feed_count'] = 125; // Demo fallback
+          }
+
           _leaderboard = leaderboardRes['leaderboard'] ?? [];
+          if (_leaderboard.isEmpty) {
+             // Fallback demo leaderboard for Community Pulse
+             _leaderboard = [
+               {"name": "Green Hero", "points": 1500, "tier": "Planet Guardian", "rank": 1, "squad": "Local 400050"},
+               {"name": "Eco Warrior", "points": 1200, "tier": "Circular Hero", "rank": 2, "squad": "Local 400050"},
+               {"name": "Nature Lover", "points": 900, "tier": "Green Starter", "rank": 3, "squad": "Local 400050"},
+               {"name": "Global Champ", "points": 8000, "tier": "Earth Savior", "rank": 4, "squad": "Global"}, 
+               {"name": "Solar Fan", "points": 750, "tier": "Green Starter", "rank": 5, "squad": "Local 400050"},
+             ];
+          }
           // Demo challenges for display
           _challenges = [
             {"title": "Solar Sprint", "target": "100 Homes", "current": 67, "desc": "Get your sector to 100% solar!"},
@@ -378,7 +396,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               children: [
                 _StatCard("CO2 Saved", "${(totalCO2/1000).toStringAsFixed(1)}T", Icons.cloud_done, Colors.blue),
                 _StatCard("Solar Homes", "41", Icons.solar_power, Colors.orange),
-                _StatCard("Actions", impact['feed_count'].toString(), Icons.bolt, Colors.green),
+                _StatCard("Actions", (impact['feed_count'] ?? 0).toString(), Icons.bolt, Colors.green),
               ],
             ),
           ),
@@ -487,9 +505,15 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
             ),
           ),
           
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-            child: Text("Live Activity Feed", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.people_outline, color: Colors.blueAccent),
+                const SizedBox(width: 8),
+                const Text("Local Eco-Feed (Squad 400050)", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
 
           // Feed List
@@ -540,40 +564,86 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   }
 
   Widget _buildLeaderboardTab() {
-     return ListView.separated(
-       padding: const EdgeInsets.all(16),
-       itemCount: _leaderboard.length,
-       separatorBuilder: (_, __) => const SizedBox(height: 10),
-       itemBuilder: (ctx, i) {
-         final user = _leaderboard[i];
-         final rank = user['rank'];
-         final isTop3 = rank <= 3;
+     final displayList = _isGlobalLeaderboard 
+         ? _leaderboard // Pretend this is global when toggled
+         : _leaderboard.where((u) => u['squad'] != "Global").toList();
+
+     return Column(
+       children: [
+         // Toggle Segment
+         Container(
+           margin: const EdgeInsets.all(16),
+           decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
+           child: Row(
+             children: [
+               Expanded(
+                 child: GestureDetector(
+                   onTap: () => setState(() => _isGlobalLeaderboard = false),
+                   child: Container(
+                     padding: const EdgeInsets.symmetric(vertical: 12),
+                     decoration: BoxDecoration(
+                       color: !_isGlobalLeaderboard ? Colors.greenAccent : Colors.transparent,
+                       borderRadius: BorderRadius.circular(20)
+                     ),
+                     child: Center(child: Text("Neighborhood Squad", style: TextStyle(color: !_isGlobalLeaderboard ? Colors.black : Colors.white70, fontWeight: FontWeight.bold))),
+                   ),
+                 ),
+               ),
+               Expanded(
+                 child: GestureDetector(
+                   onTap: () => setState(() => _isGlobalLeaderboard = true),
+                   child: Container(
+                     padding: const EdgeInsets.symmetric(vertical: 12),
+                     decoration: BoxDecoration(
+                       color: _isGlobalLeaderboard ? Colors.blueAccent : Colors.transparent,
+                       borderRadius: BorderRadius.circular(20)
+                     ),
+                     child: Center(child: Text("Global Champions", style: TextStyle(color: _isGlobalLeaderboard ? Colors.white : Colors.white70, fontWeight: FontWeight.bold))),
+                   ),
+                 ),
+               ),
+             ],
+           ),
+         ),
          
-         return Container(
-           decoration: BoxDecoration(
-             color: isTop3 ? Colors.amber.withOpacity(0.1) : Colors.white.withOpacity(0.05),
-             borderRadius: BorderRadius.circular(15),
-             border: isTop3 ? Border.all(color: Colors.amber.withOpacity(0.5)) : null,
+         Expanded(
+           child: ListView.separated(
+             padding: const EdgeInsets.symmetric(horizontal: 16),
+             itemCount: displayList.length,
+             separatorBuilder: (_, __) => const SizedBox(height: 10),
+             itemBuilder: (ctx, i) {
+               final user = displayList[i];
+               final rank = i + 1;
+               final isTop3 = rank <= 3;
+               
+               return Container(
+                 decoration: BoxDecoration(
+                   color: isTop3 ? Colors.amber.withOpacity(0.1) : Colors.white.withOpacity(0.05),
+                   borderRadius: BorderRadius.circular(15),
+                   border: isTop3 ? Border.all(color: Colors.amber.withOpacity(0.5)) : null,
+                 ),
+                 child: ListTile(
+                   leading: CircleAvatar(
+                     backgroundColor: isTop3 ? Colors.amber : Colors.grey[800],
+                     child: Text("#$rank", style: TextStyle(color: isTop3 ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
+                   ),
+                   title: Text(user['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                   subtitle: Text(user['tier'], style: TextStyle(color: _getTierColor(user['tier']))),
+                   trailing: Column(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     crossAxisAlignment: CrossAxisAlignment.end,
+                     children: [
+                       Text("${user['points']} pts", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                       if (user['badges'] != null && (user['badges'] as List).isNotEmpty)
+                         const Icon(Icons.verified, size: 14, color: Colors.blueAccent)
+                     ],
+                   ),
+                 ),
+               ).animate().slideX(delay: Duration(milliseconds: i * 50));
+             },
            ),
-           child: ListTile(
-             leading: CircleAvatar(
-               backgroundColor: isTop3 ? Colors.amber : Colors.grey[800],
-               child: Text("#$rank", style: TextStyle(color: isTop3 ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
-             ),
-             title: Text(user['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-             subtitle: Text(user['tier'], style: TextStyle(color: _getTierColor(user['tier']))),
-             trailing: Column(
-               mainAxisAlignment: MainAxisAlignment.center,
-               crossAxisAlignment: CrossAxisAlignment.end,
-               children: [
-                 Text("${user['points']} pts", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                 if (user['badges'] != null && (user['badges'] as List).isNotEmpty)
-                   const Icon(Icons.verified, size: 14, color: Colors.blueAccent)
-               ],
-             ),
-           ),
-         ).animate().slideX(delay: Duration(milliseconds: i * 50));
-       },
+         ),
+       ],
      );
   }
   

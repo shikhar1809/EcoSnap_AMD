@@ -22,6 +22,17 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
   Map<String, dynamic>? currentAnalysis;
   bool isAnalyzing = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Auto-analyze first appliance on load so the screen isn't empty
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (appliances.isNotEmpty) {
+        analyzeAppliance(appliances[0]);
+      }
+    });
+  }
+
   Future<void> analyzeAppliance(Map<String, dynamic> appliance) async {
     setState(() {
       isAnalyzing = true;

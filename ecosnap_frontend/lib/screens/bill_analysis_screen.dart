@@ -20,6 +20,7 @@ class _BillAnalysisScreenState extends State<BillAnalysisScreen> {
   Map<String, dynamic>? _billData;
   Map<String, dynamic>? _roiData;
   
+  final ApiService _apiService = ApiService();
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _uploadBill() async {
@@ -35,7 +36,7 @@ class _BillAnalysisScreenState extends State<BillAnalysisScreen> {
       final base64Image = base64Encode(bytes);
 
       // Call backend bill analysis API
-      final response = await ApiService.analyzeBill(base64Image);
+      final response = await _apiService.analyzeBill(base64Image);
       
       setState(() {
         _billData = response['bill_data'];
@@ -73,7 +74,7 @@ class _BillAnalysisScreenState extends State<BillAnalysisScreen> {
     // Assume 80% bill reduction
     double monthlySavings = monthlyBill * 0.8;
     double yearlySavings = monthlySavings * 12;
-    double paybackMonths = (netCost / monthlySavings).ceil();
+    int paybackMonths = (netCost / monthlySavings).ceil();
     
     // 5-year projection
     double fiveYearSavings = yearlySavings * 5 - netCost;
@@ -105,7 +106,7 @@ class _BillAnalysisScreenState extends State<BillAnalysisScreen> {
         centerTitle: true,
       ),
       body: _isAnalyzing
-          ? const Center(child: LeafLoadingIndicator(message: 'Analyzing your bill...'))
+          ? const Center(child: LeafLoadingWidget())
           : _billData == null
               ? _buildUploadUI()
               : _buildResultsUI(),

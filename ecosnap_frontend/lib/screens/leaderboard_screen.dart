@@ -54,10 +54,27 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     if (mounted) {
       setState(() {
         _users = _isNeighborhood ? neighborhoodDemo : globalDemo;
-        if (apiUsers.isNotEmpty) {
-           // Merge or prefer API users if available
-           _users = [..._users, ...apiUsers];
-           _users.sort((a, b) => (b['points'] as int).compareTo(a['points'] as int));
+        try {
+          if (apiUsers.isNotEmpty) {
+             // Merge or prefer API users if available
+             // Ensure points are parsed as int
+             final validApiUsers = apiUsers.where((u) => u['points'] != null).toList();
+             _users = [...validApiUsers, ..._users];
+             
+             // Deduplicate by name if needed, but simple list is fine for now
+             _users.sort((a, b) {
+                int pA = int.tryParse(a['points'].toString()) ?? 0;
+                int pB = int.tryParse(b['points'].toString()) ?? 0;
+                return pB.compareTo(pA);
+             });
+             
+             // Take top 50
+             if (_users.length > 50) _users = _users.sublist(0, 50);
+          }
+        } catch (e) {
+          print("Leaderboard sort error: $e");
+          // Fallback to demo data only if something failed disastrously
+          _users = _isNeighborhood ? neighborhoodDemo : globalDemo;
         }
         _userPincode = prefs.getString('user_pincode') ?? "400050";
         _userCity = prefs.getString('user_city') ?? "Mumbai";

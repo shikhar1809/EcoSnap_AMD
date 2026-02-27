@@ -70,6 +70,12 @@ class _VerificationDialogState extends State<VerificationDialog> {
       'desc': 'Emissions & EV comparison',
       'color': Colors.teal,
     },
+    'LAND_ANALYSIS': {
+      'iconData': Icons.landscape_rounded,
+      'name': 'Land Energy Analysis',
+      'desc': 'Solar farm & agrivoltaic feasibility',
+      'color': Color(0xFF2e7d32),
+    },
     'SPECIAL': {
       'iconData': Icons.auto_awesome_rounded,
       'name': 'General Analysis',

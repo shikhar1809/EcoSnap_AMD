@@ -12,10 +12,50 @@ from app.services.carbon_credit_service import (
 router = APIRouter()
 
 # Mock DB (replace with actual database in production)
-user_credits_db = {}  # user_id -> balance
+user_credits_db = {
+    "test_user_id": 1.2  # Demo: 1.2 CCC balance
+}
 transactions_db = []
-carbon_wallets_db = {}  # user_id -> wallet data
-offset_projects_db = []
+carbon_wallets_db = {
+    "test_user_id": {
+        "user_id": "test_user_id",
+        "last_updated": "2026-02-20T10:00:00",
+        "net_emissions_tco2": 2.1,
+        "breakdown": {
+            "electricity": 1.2,
+            "cooking_gas": 0.4,
+            "transport": 0.5
+        },
+        "recommendations": [
+            "Switch to a 5-star AC to save 0.3 tCO2e/year",
+            "Install 2kW rooftop solar to offset 1.2 tCO2e/year",
+            "Use public transport twice a week to save 0.2 tCO2e/year",
+            "Replace old refrigerator with an inverter model"
+        ]
+    }
+}
+offset_projects_db = [
+    {
+        "id": "demo-proj-001",
+        "user_id": "test_user_id",
+        "project_name": "Rooftop Solar Installation",
+        "project_type": "renewable_energy",
+        "credits_earned": 1.8,
+        "estimated_value": 2700,
+        "status": "Verified",
+        "submitted_at": "2026-01-15T09:30:00"
+    },
+    {
+        "id": "demo-proj-002",
+        "user_id": "test_user_id",
+        "project_name": "Community Tree Plantation Drive",
+        "project_type": "reforestation",
+        "credits_earned": 0.5,
+        "estimated_value": 750,
+        "status": "Pending Verification",
+        "submitted_at": "2026-02-10T14:00:00"
+    }
+]
 
 # ==================== MODELS ====================
 

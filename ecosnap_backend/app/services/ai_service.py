@@ -55,8 +55,11 @@ ADVANCED CALCULATIONS:
 OUTPUT JSON:
 {{
     "journey": "SOLAR_AUDIT",
-    "type": "property_exterior",
     "product_name": "Advanced Solar Potential Analysis",
+    
+    "roof_polygon": [
+        {"x": 0.5, "y": 0.5} // Provide 4 normalized coordinates (0.0 to 1.0, where 0,0 is top-left) for the main roof corners
+    ],
     
     "roof_3d_analysis": {{
         "estimated_area_sqm": number,
@@ -173,8 +176,8 @@ OUTPUT JSON:
     "detected_appliances": [
         {{
             "name": "Air Conditioner",
-            "type": "AC",
             "capacity_ton": number,
+            "position": {"x": 0.5, "y": 0.5}, // Normalized coordinates (0.0 to 1.0, where 0,0 is top-left) of the appliance in the image
             "placement": "Near south window",
             "placement_efficiency": "Optimal/Suboptimal/Poor",
             "estimated_power_watts": number,
@@ -498,6 +501,10 @@ OUTPUT JSON:
     "type": "property_exterior",
     "product_name": "Micro-Wind Potential Assessment",
     
+    "optimal_turbine_placements": [
+        {"x": 0.5, "y": 0.5} // Provide normalized coordinates (0.0 to 1.0, where 0,0 is top-left) for best turbine mounting points in the image
+    ],
+    
     "site_analysis": {{
         "roughness_class": "0 (Water) to 4 (Urban)",
         "estimated_hub_height_m": number,
@@ -527,6 +534,97 @@ OUTPUT JSON:
     "recommendation": "Specific advice on turbine choice and placement",
     "confidence_score": 0.0-1.0
 }}
+""",
+
+    "LAND_ANALYSIS": """
+You are EcoSnap's Advanced Land & Terrain Intelligence System. Analyze this land, field, plot, or open area image with EXTREME PRECISION.
+
+CRITICAL ANALYSIS REQUIREMENTS:
+1. **Terrain Assessment**: Identify land type (agricultural, barren, urban plot, forest clearing, etc.)
+2. **Solar Potential**: Estimate ground-mounted solar farm viability based on slope, shading & orientation.
+3. **Wind Potential**: Assess open-area wind turbine viability — obstructions, terrain roughness, elevation.
+4. **Agrivoltaic Potential**: Can solar panels coexist with crops? Identify ideal agrivoltaic configurations.
+5. **Soil & Drainage**: Estimate soil quality for foundation, drainage quality for panel washing/runoff.
+6. **Land Area**: Estimate usable area in sqm from visible cues (trees, fences, roads as scale references).
+7. **EV Charging Hub Potential**: Is this land near a highway/commercial zone suitable for an EV charging station?
+
+ADVANCED CALCULATIONS:
+- Ground-mounted solar: 1 MW needs ~2 acres (8,000 sqm) — calculate feasible capacity
+- Wind: minimum 30-50 m hub height on open land for effective generation
+- Net metering applicability for excess generation
+
+OUTPUT JSON:
+{{
+    "journey": "LAND_ANALYSIS",
+    "type": "land_plot",
+    "product_name": "Land & Renewable Energy Potential Assessment",
+    
+    "land_profile": {{
+        "land_type": "Agricultural/Barren/Urban Plot/Coastal/Hilly",
+        "estimated_area_sqm": number,
+        "estimated_area_acres": number,
+        "terrain_slope_deg": number,
+        "vegetation_cover": "Dense/Sparse/None",
+        "drainage_quality": "Good/Moderate/Poor",
+        "soil_type": "Clay/Sandy/Loamy/Rocky (estimated)",
+        "nearest_obstruction_m": number
+    }},
+    
+    "solar_potential": {{
+        "viability_score": 0-100,
+        "recommended_system": "Ground-Mount Fixed Tilt/Single-Axis Tracker/Agrivoltaic",
+        "estimated_capacity_kw": number,
+        "estimated_annual_generation_kwh": number,
+        "land_utilization_percent": number,
+        "shading_risk": "Low/Medium/High"
+    }},
+    
+    "wind_potential": {{
+        "viability_score": 0-100,
+        "recommended_turbine_type": "HAWT/VAWT/None",
+        "estimated_capacity_kw": number,
+        "estimated_annual_generation_kwh": number,
+        "terrain_roughness_class": 0-4
+    }},
+    
+    "agrivoltaic_potential": {{
+        "feasible": true/false,
+        "compatible_crops": ["Wheat", "Vegetables", "Spices"],
+        "panel_configuration": "Elevated (3m+) / Row spacing / Dual-use layout",
+        "yield_impact_percent": number,
+        "dual_income_potential": "High/Medium/Low"
+    }},
+    
+    "ev_charging_potential": {{
+        "feasible": true/false,
+        "proximity_to_highway_km": number,
+        "estimated_chargers": number,
+        "grid_connection_feasibility": "Easy/Moderate/Difficult"
+    }},
+    
+    "financial_analysis": {{
+        "solar_farm_project_cost_inr": number,
+        "estimated_annual_revenue_inr": number,
+        "payback_years": number,
+        "25_year_profit_inr": number,
+        "government_schemes": ["PM-KUSUM for farmers", "SECI tenders", "Net Metering"]
+    }},
+    
+    "land_clearing_requirements": {{
+        "vegetation_removal_needed": true/false,
+        "grading_required": true/false,
+        "estimated_preparation_cost_inr": number
+    }},
+    
+    "optimal_turbine_placements": [
+        {{"x": 0.5, "y": 0.5}}
+    ],
+    
+    "recommendation": "Detailed recommendation with specific next steps for the landowner",
+    "confidence_score": 0.0-1.0
+}}
+
+BE EXTREMELY DETAILED. Use visible cues (fences, trees, roads) to estimate scale and area accurately. This is production-grade land analysis.
 """,
 
     "SPECIAL": """
@@ -568,7 +666,7 @@ YOLO detected: {yolo_objects}
 User note: {user_note}
 Scan mode: {scan_mode}
 
-THE 7 JOURNEYS (choose ONE):
+THE 8 JOURNEYS (choose ONE):
 1. SOLAR_AUDIT → House exterior, rooftop, building facade, terrace (Primary for Buildings)
 2. WIND_ANALYSIS → Open rooftop, farmland, windy terrain, high-rise balcony
 3. ROOM_ENERGY → Furnished room with appliances (living room, office, bedroom)
@@ -576,6 +674,7 @@ THE 7 JOURNEYS (choose ONE):
 5. BILL_OCR → Utility bill, electricity bill, receipt, document
 6. FOOD_AUDIT → Food, meal, groceries, restaurant dish
 7. VEHICLE_CHECK → Car, motorcycle, scooter, any vehicle
+8. LAND_ANALYSIS → Open land, agricultural field, barren plot, empty terrain, farm land (NOT a rooftop)
 
 CRITICAL RULES FOR "HOUSE/BUILDING" IMAGES:
 - If image shows a HOUSE/ROOF/BUILDING:
@@ -583,9 +682,15 @@ CRITICAL RULES FOR "HOUSE/BUILDING" IMAGES:
   - If user explicitly mentions "wind" or "turbine", OR if context implies high altitude/open space, choose "WIND_ANALYSIS".
   - DO NOT choose "PRODUCT_SCAN" or "BILL_OCR" for a house.
 
+CRITICAL RULES FOR "LAND/FIELD" IMAGES:
+- If image shows OPEN LAND, a FIELD, FARM, EMPTY PLOT, or TERRAIN (NOT a building rooftop):
+  - Default to "LAND_ANALYSIS".
+  - If the land is a rooftop/terrace, prefer "SOLAR_AUDIT" instead.
+
 RULES:
 - If you see a BUILDING EXTERIOR → SOLAR_AUDIT (or WIND_ANALYSIS if appropriate)
 - If you see a ROOM INTERIOR with furniture/appliances → ROOM_ENERGY
+- If you see OPEN LAND / FARM / EMPTY PLOT → LAND_ANALYSIS
 - If you see a SINGLE PRODUCT → PRODUCT_SCAN
 - If you see TEXT/NUMBERS like a bill → BILL_OCR
 - If you see FOOD → FOOD_AUDIT
@@ -594,7 +699,7 @@ RULES:
 
 OUTPUT JSON:
 {{
-    "journey_id": "SOLAR_AUDIT|WIND_ANALYSIS|ROOM_ENERGY|PRODUCT_SCAN|BILL_OCR|FOOD_AUDIT|VEHICLE_CHECK|SPECIAL",
+    "journey_id": "SOLAR_AUDIT|WIND_ANALYSIS|ROOM_ENERGY|PRODUCT_SCAN|BILL_OCR|FOOD_AUDIT|VEHICLE_CHECK|LAND_ANALYSIS|SPECIAL",
     "confidence": 0.0-1.0,
     "detected_category": "Short description (e.g., 'House with terrace', 'Water bottle')",
     "reasoning": "Why you chose this journey",

@@ -65,6 +65,13 @@ def get_demo_response(journey_id: str):
             "recommendation": "Switch to Milton Thermosteel bottle. Break-even in just 23 uses (under 1 month). Annual savings: ₹1,200 + 4.6kg CO₂.",
             "confidence_score": 0.94,
             
+            "edge_inference": {
+                "processed_on_edge": True,
+                "hardware": "AMD Ryzen™ AI NPU",
+                "latency_ms": 42,
+                "co2_saved_grams": 0.43 
+            },
+            
             "_data_sources": [
                 "Open Food Facts (2.8M products)",
                 "ADEME Carbon Database",

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -72,14 +73,16 @@ class _ScannerV2WidgetState extends State<ScannerV2Widget> with TickerProviderSt
     // Phase 1: Object Detection (800ms)
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
+    HapticFeedback.lightImpact();
     setState(() {
       _currentPhaseIndex = 0;
       _detectedName = widget.detectedProduct ?? "Product Detected";
-      _liveData.add("OBJECT: $_detectedName");
+      _liveData.add("YOLOv8 DETECT: $_detectedName");
     });
     
     await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
+    HapticFeedback.lightImpact();
     setState(() {
       _currentPhaseIndex = 1;
       _liveData.add("CONFIDENCE: ${(85 + random.nextInt(14))}%");
@@ -88,32 +91,39 @@ class _ScannerV2WidgetState extends State<ScannerV2Widget> with TickerProviderSt
     // Phase 2: AI Processing (1000ms)
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+    HapticFeedback.lightImpact();
     setState(() {
       _currentPhaseIndex = 2;
       _carbonValue = 1.2 + random.nextDouble() * 3;
-      _liveData.add("CO₂: ${_carbonValue.toStringAsFixed(2)} kg/year");
+      _liveData.add("GEMINI_API: Parsing lifecycle emissions...");
+      _liveData.add("CO₂ EST: ${_carbonValue.toStringAsFixed(2)} kg/year");
     });
     
     // Phase 3: Alternatives (800ms)
     await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
+    HapticFeedback.lightImpact();
     setState(() {
       _currentPhaseIndex = 3;
-      _liveData.add("ALTERNATIVES: 3 found");
+      _liveData.add("QUERYING VECTOR DB: Connecting...");
+      _liveData.add("ALTERNATIVES: 3 matching found");
     });
     
     // Phase 4: Savings (600ms)
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+    HapticFeedback.lightImpact();
     setState(() {
       _currentPhaseIndex = 4;
       _savingsValue = 500 + random.nextInt(2000).toDouble();
+      _liveData.add("CALCULATING ROI: Applying local tariffs...");
       _liveData.add("SAVINGS: ₹${_savingsValue.toStringAsFixed(0)}/year");
     });
     
     // Phase 5: Complete (500ms)
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+    HapticFeedback.heavyImpact();
     setState(() {
       _currentPhaseIndex = 5;
       _liveData.add("✅ ANALYSIS COMPLETE");
@@ -267,6 +277,26 @@ class _ScannerV2WidgetState extends State<ScannerV2Widget> with TickerProviderSt
                   );
                 },
               ),
+              
+              // 🔴 Simulated YOLO Bounding Box Overlay
+              if (_currentPhaseIndex >= 0)
+                Positioned(
+                  left: 60, top: 40, right: 60, bottom: 90,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.amberAccent, width: 2),
+                      color: Colors.amberAccent.withOpacity(0.05),
+                    ),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        color: Colors.amberAccent,
+                        child: Text("obj: $_detectedName 0.94", style: const TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.bold, fontFamily: 'Courier')),
+                      ),
+                    ),
+                  ).animate().fadeIn(duration: 400.ms).shimmer(duration: 1500.ms),
+                ),
               
               // 🎯 Target reticles with data
               _buildDataOverlay(),

@@ -159,3 +159,40 @@ async def get_system_metrics() -> Dict[str, Any]:
             "deployment": "Google Cloud Ready"
         }
     }
+
+
+@router.get("/system/ai-compute-stats")
+async def get_ai_compute_stats(edge_enabled: bool = False) -> Dict[str, Any]:
+    """
+    Get Green AI compute statistics for AMD Slingshot
+    Simulates the carbon savings of offloading inference to AMD Ryzen AI NPU
+    """
+    
+    # Base stats (Cloud)
+    cloud_latency_ms = 850
+    cloud_co2_per_inference_grams = 0.45
+    total_inferences = 12450
+    
+    # Edge stats (AMD Ryzen AI)
+    edge_latency_ms = 45
+    edge_co2_per_inference_grams = 0.02
+    
+    current_latency = edge_latency_ms if edge_enabled else cloud_latency_ms
+    current_co2 = edge_co2_per_inference_grams if edge_enabled else cloud_co2_per_inference_grams
+    
+    total_co2_saved_grams = (cloud_co2_per_inference_grams - edge_co2_per_inference_grams) * total_inferences if edge_enabled else 0
+    
+    return {
+        "is_edge_mode_active": edge_enabled,
+        "hardware_profile": "AMD Ryzen™ AI NPU" if edge_enabled else "Cloud Server GPU",
+        "performance": {
+            "latency_ms": current_latency,
+            "latency_improvement_percent": round((1 - (edge_latency_ms / cloud_latency_ms)) * 100) if edge_enabled else 0
+        },
+        "sustainability": {
+            "co2_emitted_per_scan_grams": current_co2,
+            "total_platform_inferences": total_inferences,
+            "total_co2_saved_grams": round(total_co2_saved_grams, 2),
+            "cloud_baseline_co2_grams": cloud_co2_per_inference_grams * total_inferences
+        }
+    }
