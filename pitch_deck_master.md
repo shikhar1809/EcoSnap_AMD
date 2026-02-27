@@ -24,6 +24,8 @@ EcoSnap is an AI-powered financial and lead-generation catalyst that removes eve
 ## 🔀 2. The User Flow (Process Diagram)
 This is the frictionless journey a user experiences from discovery to installation. This diagram is perfect for a dedicated slide illustrating "How It Works".
 
+![EcoSnap User Flow Diagram](c:\Users\royal\.gemini\antigravity\brain\ad6594ef-691d-4873-abc4-64a56545af87\ecosnap_user_flow_1772207227551.png)
+
 ```mermaid
 journey
     title The EcoSnap Zero-Friction User Journey
