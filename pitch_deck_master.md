@@ -114,6 +114,8 @@ We are targeting the intersection of Climate Tech and Consumer Home Services.
 
 To sell the technical capability of the project, use this architecture description to create a visual slide in your deck:
 
+![EcoSnap Technical Architecture Diagram](c:\Users\royal\.gemini\antigravity\brain\ad6594ef-691d-4873-abc4-64a56545af87\ecosnap_architecture_1772208014728.png)
+
 ```mermaid
 graph TD;
     %% Frontend Clients
